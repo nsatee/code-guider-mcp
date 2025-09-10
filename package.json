@@ -1,6 +1,6 @@
 {
   "name": "code-guider-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Local MCP server for code guidance and workflow automation",
   "main": "dist/index.js",
   "bin": {
