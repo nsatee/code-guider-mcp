@@ -23,9 +23,13 @@ import {
 export class DrizzleStorage {
   private db: ReturnType<DatabaseConnection['getDrizzle']>;
 
-  constructor() {
-    const connection = DatabaseConnection.getInstance();
-    this.db = connection.getDrizzle();
+  constructor(db: ReturnType<DatabaseConnection['getDrizzle']>) {
+    this.db = db;
+  }
+
+  static async create(): Promise<DrizzleStorage> {
+    const connection = await DatabaseConnection.getInstance();
+    return new DrizzleStorage(connection.getDrizzle());
   }
 
   // Workflow operations

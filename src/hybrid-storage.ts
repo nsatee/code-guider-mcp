@@ -23,9 +23,15 @@ export class HybridStorage {
   private drizzleStorage: DrizzleStorage;
   private vectorStorage: VectorStorage;
 
-  constructor(dbPath: string = '.guidance/guidance.db') {
-    this.drizzleStorage = new DrizzleStorage();
-    this.vectorStorage = new VectorStorage(dbPath);
+  constructor(drizzleStorage: DrizzleStorage, vectorStorage: VectorStorage) {
+    this.drizzleStorage = drizzleStorage;
+    this.vectorStorage = vectorStorage;
+  }
+
+  static async create(dbPath: string = '.guidance/guidance.db'): Promise<HybridStorage> {
+    const drizzleStorage = await DrizzleStorage.create();
+    const vectorStorage = await VectorStorage.create(dbPath);
+    return new HybridStorage(drizzleStorage, vectorStorage);
   }
 
   // Workflow operations - using Drizzle for CRUD, VectorStorage for search

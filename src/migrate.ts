@@ -17,7 +17,7 @@ async function migrateToHybridStorage(): Promise<void> {
   try {
     // Initialize database connection and create tables directly
     console.log('🗄️  Setting up database...');
-    const dbConnection = DatabaseConnection.getInstance();
+    const dbConnection = await DatabaseConnection.getInstance();
 
     // Create tables directly since migration files don't exist
     const db = dbConnection.getRawDb();
@@ -68,7 +68,7 @@ async function migrateToHybridStorage(): Promise<void> {
 
     // Now create the storage instances
     const fileStorage = new LocalStorage();
-    hybridStorage = new HybridStorage();
+    hybridStorage = await HybridStorage.create();
 
     // Check if hybrid storage already exists and has data
     const existingWorkflows = await hybridStorage.listWorkflows();

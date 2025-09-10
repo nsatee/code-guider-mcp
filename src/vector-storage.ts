@@ -1,4 +1,4 @@
-import { Database } from 'bun:sqlite';
+// Database will be imported dynamically based on runtime
 import type {
   CodeTemplate,
   Memory,
@@ -32,13 +32,25 @@ export interface CodeAnalysis {
 }
 
 export class VectorStorage {
-  private db: Database;
+  private db: any;
   private embeddingModel: unknown = null;
 
-  constructor(dbPath: string = '.guidance/guidance.db') {
-    this.db = new Database(dbPath);
+  constructor(db: any) {
+    this.db = db;
     this.initializeDatabase();
     this.initializeEmbeddingModel();
+  }
+
+  static async create(dbPath: string = '.guidance/guidance.db'): Promise<VectorStorage> {
+    // Always use Node.js implementation for compatibility
+    try {
+      const betterSqlite3 = await import('better-sqlite3');
+      const Database = betterSqlite3.default;
+      const db = new Database(dbPath);
+      return new VectorStorage(db);
+    } catch (error) {
+      throw new Error(`Failed to load SQLite implementation: ${error}`);
+    }
   }
 
   private async initializeEmbeddingModel(): Promise<void> {

@@ -480,10 +480,10 @@ export class ProjectManager {
 
     // Create local database
     const localDbPath = join(projectPath, '.guidance', 'guidance.db');
-    const _dbConnection = DatabaseConnection.getInstance();
+    const _dbConnection = await DatabaseConnection.getInstance();
 
     // Initialize local storage
-    const _localStorage = new HybridStorage(localDbPath);
+    const _localStorage = await HybridStorage.create(localDbPath);
 
     // Save project info
     await this.saveProjectInfo(projectInfo);
@@ -500,19 +500,19 @@ export class ProjectManager {
   /**
    * Get project storage (local or global)
    */
-  public getProjectStorage(projectPath?: string): HybridStorage {
+  public async getProjectStorage(projectPath?: string): Promise<HybridStorage> {
     if (projectPath) {
       const localDbPath = join(projectPath, '.guidance', 'guidance.db');
-      return new HybridStorage(localDbPath);
+      return await HybridStorage.create(localDbPath);
     }
-    return new HybridStorage(this.globalDbPath);
+    return await HybridStorage.create(this.globalDbPath);
   }
 
   /**
    * Get global storage
    */
-  public getGlobalStorage(): HybridStorage {
-    return new HybridStorage(this.globalDbPath);
+  public async getGlobalStorage(): Promise<HybridStorage> {
+    return await HybridStorage.create(this.globalDbPath);
   }
 
   /**

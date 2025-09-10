@@ -4,8 +4,8 @@ import type { CodeTemplate, QualityRule, Workflow } from '../types';
 describe.skip('HybridStorage', () => {
   let storage: HybridStorage;
 
-  beforeEach(() => {
-    storage = new HybridStorage('.test-guidance.db');
+  beforeEach(async () => {
+    storage = await HybridStorage.create('.test-guidance.db');
   });
 
   afterEach(async () => {
