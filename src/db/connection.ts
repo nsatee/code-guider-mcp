@@ -34,7 +34,7 @@ export class DatabaseConnection {
 
   private async init(dbPath: string) {
     const { Database, drizzle, migrate } = await getDatabaseAndDrizzle();
-    
+
     this.db = new Database(dbPath);
     this.drizzle = drizzle(this.db, { schema });
     this.migrate = migrate;
@@ -46,7 +46,9 @@ export class DatabaseConnection {
     this.db.exec('PRAGMA temp_store=MEMORY;');
   }
 
-  public static async getInstance(dbPath?: string): Promise<DatabaseConnection> {
+  public static async getInstance(
+    dbPath?: string
+  ): Promise<DatabaseConnection> {
     if (!DatabaseConnection.instance) {
       DatabaseConnection.instance = new DatabaseConnection(dbPath);
       await DatabaseConnection.instance.init(dbPath || '.guidance/guidance.db');
