@@ -10,7 +10,9 @@ import { VectorStorage } from './vector-storage';
  * Migration script to convert from file-based storage to hybrid storage (Drizzle + Vector)
  */
 async function migrateToHybridStorage(): Promise<void> {
-  console.log('🔄 Starting migration from file-based storage to hybrid storage...');
+  console.log(
+    '🔄 Starting migration from file-based storage to hybrid storage...'
+  );
 
   let hybridStorage: HybridStorage | null = null;
 
@@ -117,7 +119,9 @@ async function migrateToHybridStorage(): Promise<void> {
     console.log(`  - Project Config: ${config ? 'Yes' : 'No'}`);
 
     console.log('\n💡 The old file-based storage is preserved for backup.');
-    console.log('   You can now use the new hybrid storage with Drizzle ORM + Vector search!');
+    console.log(
+      '   You can now use the new hybrid storage with Drizzle ORM + Vector search!'
+    );
   } catch (error) {
     console.error('❌ Migration failed:', error);
     process.exit(1);
@@ -130,7 +134,9 @@ async function migrateToHybridStorage(): Promise<void> {
 
 // Legacy migration function for backward compatibility
 async function migrateToVectorStorage(): Promise<void> {
-  console.log('🔄 Starting migration from file-based storage to vector storage...');
+  console.log(
+    '🔄 Starting migration from file-based storage to vector storage...'
+  );
 
   const fileStorage = new LocalStorage();
   let vectorStorage: VectorStorage | null = null;
@@ -183,7 +189,9 @@ async function migrateToVectorStorage(): Promise<void> {
     console.log(`  - Project Config: ${config ? 'Yes' : 'No'}`);
 
     console.log('\n💡 The old file-based storage is preserved for backup.');
-    console.log('   You can now use the new AI-powered vector storage features!');
+    console.log(
+      '   You can now use the new AI-powered vector storage features!'
+    );
   } catch (error) {
     console.error('❌ Migration failed:', error);
     process.exit(1);

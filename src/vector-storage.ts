@@ -41,7 +41,9 @@ export class VectorStorage {
     this.initializeEmbeddingModel();
   }
 
-  static async create(dbPath: string = '.guidance/guidance.db'): Promise<VectorStorage> {
+  static async create(
+    dbPath: string = '.guidance/guidance.db'
+  ): Promise<VectorStorage> {
     // Always use Node.js implementation for compatibility
     try {
       const betterSqlite3 = await import('better-sqlite3');

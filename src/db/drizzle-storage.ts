@@ -96,7 +96,7 @@ export class DrizzleStorage {
       .from(workflows)
       .orderBy(desc(workflows.createdAt));
 
-    return results.map((row) => ({
+    return results.map((row: any) => ({
       id: row.id,
       name: row.name,
       description: row.description,
@@ -126,7 +126,7 @@ export class DrizzleStorage {
       )
       .orderBy(desc(workflows.createdAt));
 
-    return results.map((row) => ({
+    return results.map((row: any) => ({
       id: row.id,
       name: row.name,
       description: row.description,
@@ -204,7 +204,7 @@ export class DrizzleStorage {
       .from(templates)
       .orderBy(desc(templates.createdAt));
 
-    return results.map((row) => ({
+    return results.map((row: any) => ({
       id: row.id,
       name: row.name,
       type: row.type as CodeTemplate['type'],
@@ -230,7 +230,7 @@ export class DrizzleStorage {
       )
       .orderBy(desc(templates.createdAt));
 
-    return results.map((row) => ({
+    return results.map((row: any) => ({
       id: row.id,
       name: row.name,
       type: row.type as CodeTemplate['type'],
@@ -308,7 +308,7 @@ export class DrizzleStorage {
       .from(qualityRules)
       .orderBy(desc(qualityRules.createdAt));
 
-    return results.map((row) => ({
+    return results.map((row: any) => ({
       id: row.id,
       name: row.name,
       description: row.description,
@@ -450,7 +450,7 @@ export class DrizzleStorage {
       .orderBy(desc(memories.importance), desc(memories.lastAccessed))
       .limit(limit);
 
-    return result.map((row) => ({
+    return result.map((row: any) => ({
       id: row.id,
       content: row.content,
       type: row.type as MemoryType,
@@ -505,7 +505,7 @@ export class DrizzleStorage {
       .from(memories)
       .groupBy(memories.type);
 
-    const byType = typeResults.reduce((acc, row) => {
+    const byType = typeResults.reduce((acc: any, row: any) => {
       acc[row.type as MemoryType] = row.count;
       return acc;
     }, {} as Record<MemoryType, number>);
@@ -516,7 +516,7 @@ export class DrizzleStorage {
       .from(memories)
       .groupBy(memories.category);
 
-    const byCategory = categoryResults.reduce((acc, row) => {
+    const byCategory = categoryResults.reduce((acc: any, row: any) => {
       acc[row.category as MemoryCategory] = row.count;
       return acc;
     }, {} as Record<MemoryCategory, number>);
@@ -527,7 +527,7 @@ export class DrizzleStorage {
       .from(memories)
       .groupBy(memories.scope);
 
-    const byScope = scopeResults.reduce((acc, row) => {
+    const byScope = scopeResults.reduce((acc: any, row: any) => {
       acc[row.scope as 'global' | 'project'] = row.count;
       return acc;
     }, {} as Record<'global' | 'project', number>);
@@ -613,7 +613,7 @@ export class DrizzleStorage {
 
     const result = await query.orderBy(desc(memoryRules.createdAt));
 
-    return result.map((row) => ({
+    return result.map((row: any) => ({
       id: row.id,
       name: row.name,
       description: row.description,

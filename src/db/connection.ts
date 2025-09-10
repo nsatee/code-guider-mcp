@@ -8,10 +8,11 @@ async function getDatabaseAndDrizzle() {
   try {
     const betterSqlite3 = await import('better-sqlite3');
     const nodeDrizzle = await import('drizzle-orm/better-sqlite3');
+    const nodeMigrate = await import('drizzle-orm/better-sqlite3/migrator');
     return {
       Database: betterSqlite3.default,
       drizzle: nodeDrizzle.drizzle,
-      migrate: nodeDrizzle.migrate,
+      migrate: nodeMigrate.migrate,
     };
   } catch (error) {
     throw new Error(`Failed to load SQLite implementation: ${error}`);
@@ -57,7 +58,7 @@ export class DatabaseConnection {
     return this.drizzle;
   }
 
-  public getRawDb(): Database {
+  public getRawDb(): any {
     return this.db;
   }
 
