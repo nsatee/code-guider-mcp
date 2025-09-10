@@ -25,7 +25,7 @@ try {
   
   // 3. Update version
   console.log(`📦 Updating version (${releaseType})...`);
-  execSync(`bun version ${releaseType}`, { stdio: 'inherit' });
+  execSync(`npm version ${releaseType}`, { stdio: 'inherit' });
   
   // 4. Get new version
   const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
