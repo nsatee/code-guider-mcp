@@ -1,5 +1,5 @@
-import type { MemoryRouter } from './memory-router.js';
-import type { ProjectManager } from './project-manager.js';
+import type { MemoryRouter } from './memory-router';
+import type { ProjectManager } from './project-manager';
 import type {
   AgentRequestContext,
   EnhancedAgentRequest,
@@ -7,7 +7,7 @@ import type {
   MemoryRule,
   MemorySearchResult,
   MemoryType,
-} from './types.js';
+} from './types';
 
 /**
  * Memory Rule Manager that automatically attaches relevant memories to agent requests
@@ -26,7 +26,7 @@ export class MemoryRuleManager {
    */
   public async initializeProjectRules(
     projectPath: string,
-    projectType: string,
+    projectType: string
   ): Promise<void> {
     const projectId = this.generateProjectId(projectPath);
 
@@ -46,7 +46,7 @@ export class MemoryRuleManager {
    */
   private createDefaultRules(
     projectType: string,
-    projectId: string,
+    projectId: string
   ): MemoryRule[] {
     const now = new Date().toISOString();
     const rules: MemoryRule[] = [];
@@ -223,7 +223,7 @@ export class MemoryRuleManager {
    */
   public async enhanceAgentRequest(
     originalRequest: unknown,
-    context: AgentRequestContext,
+    context: AgentRequestContext
   ): Promise<EnhancedAgentRequest> {
     const relevantMemories: MemorySearchResult[] = [];
     const appliedRules: MemoryRule[] = [];
@@ -233,7 +233,9 @@ export class MemoryRuleManager {
 
     // Apply each rule to gather relevant memories
     for (const rule of applicableRules) {
-      if (!rule.enabled) continue;
+      if (!rule.enabled) {
+        continue;
+      }
 
       const memories = await this.applyRule(rule, context);
       relevantMemories.push(...memories);
@@ -243,14 +245,14 @@ export class MemoryRuleManager {
     // Remove duplicates and sort by relevance
     const uniqueMemories = this.deduplicateMemories(relevantMemories);
     const sortedMemories = uniqueMemories.sort(
-      (a, b) => b.relevance - a.relevance,
+      (a, b) => b.relevance - a.relevance
     );
 
     // Create enhanced prompt
     const enhancedPrompt = this.createEnhancedPrompt(
       originalRequest,
       sortedMemories,
-      context,
+      context
     );
 
     return {
@@ -267,16 +269,20 @@ export class MemoryRuleManager {
    */
   private findApplicableRules(context: AgentRequestContext): MemoryRule[] {
     return this.rules.filter((rule) => {
-      if (!rule.enabled) return false;
+      if (!rule.enabled) {
+        return false;
+      }
 
       switch (rule.trigger.type) {
         case 'always':
           return true;
 
         case 'file_path':
-          if (!context.filePath) return false;
+          if (!context.filePath) {
+            return false;
+          }
           return rule.trigger.patterns.some((pattern) =>
-            context.filePath?.includes(pattern),
+            context.filePath?.includes(pattern)
           );
 
         case 'project_type':
@@ -286,9 +292,11 @@ export class MemoryRuleManager {
           return context.workflowId && rule.trigger.conditions.hasWorkflow;
 
         case 'user_query':
-          if (!context.userQuery) return false;
+          if (!context.userQuery) {
+            return false;
+          }
           return rule.trigger.patterns.some((pattern) =>
-            context.userQuery?.toLowerCase().includes(pattern.toLowerCase()),
+            context.userQuery?.toLowerCase().includes(pattern.toLowerCase())
           );
 
         case 'code_analysis':
@@ -308,7 +316,7 @@ export class MemoryRuleManager {
    */
   private async applyRule(
     rule: MemoryRule,
-    context: AgentRequestContext,
+    context: AgentRequestContext
   ): Promise<MemorySearchResult[]> {
     const searchQuery = this.buildSearchQuery(rule, context);
 
@@ -317,12 +325,12 @@ export class MemoryRuleManager {
       rule.scope as 'global' | 'project',
       rule.memoryTypes[0] as MemoryType,
       rule.memoryCategories[0] as MemoryCategory,
-      rule.maxMemories,
+      rule.maxMemories
     );
 
     // Filter by relevance threshold
     return memories.filter(
-      (memory) => memory.relevance >= rule.relevanceThreshold,
+      (memory) => memory.relevance >= rule.relevanceThreshold
     );
   }
 
@@ -331,14 +339,16 @@ export class MemoryRuleManager {
    */
   private buildSearchQuery(
     rule: MemoryRule,
-    context: AgentRequestContext,
+    context: AgentRequestContext
   ): string {
     const queryParts: string[] = [];
 
     // Add context-specific terms
     if (context.filePath) {
       const fileExt = context.filePath.split('.').pop();
-      queryParts.push(fileExt);
+      if (fileExt) {
+        queryParts.push(fileExt);
+      }
     }
 
     if (context.projectType) {
@@ -375,7 +385,7 @@ export class MemoryRuleManager {
   private createEnhancedPrompt(
     originalRequest: unknown,
     memories: MemorySearchResult[],
-    context: AgentRequestContext,
+    context: AgentRequestContext
   ): string {
     if (memories.length === 0) {
       return typeof originalRequest === 'string'
@@ -386,7 +396,9 @@ export class MemoryRuleManager {
     const memoryContext = memories
       .map((result, index) => {
         const memory = result.memory;
-        return `${index + 1}. **${memory.type}** (${memory.scope}): ${memory.content}`;
+        return `${index + 1}. **${memory.type}** (${memory.scope}): ${
+          memory.content
+        }`;
       })
       .join('\n\n');
 
@@ -395,7 +407,11 @@ export class MemoryRuleManager {
 ${memoryContext}
 
 **Original Request:**
-${typeof originalRequest === 'string' ? originalRequest : JSON.stringify(originalRequest, null, 2)}
+${
+  typeof originalRequest === 'string'
+    ? originalRequest
+    : JSON.stringify(originalRequest, null, 2)
+}
 
 **Context:**
 - Project: ${context.projectType || 'Unknown'}
@@ -412,7 +428,7 @@ Please use the relevant knowledge above to provide a more informed and contextua
    * Deduplicate memories by ID
    */
   private deduplicateMemories(
-    memories: MemorySearchResult[],
+    memories: MemorySearchResult[]
   ): MemorySearchResult[] {
     const seen = new Set<string>();
     return memories.filter((memory) => {
@@ -445,7 +461,7 @@ Please use the relevant knowledge above to provide a more informed and contextua
     // This would typically load from database
     // For now, we'll just filter existing rules
     this.rules = this.rules.filter(
-      (rule) => rule.context.projectType || rule.scope === 'global',
+      (rule) => rule.context.projectType || rule.scope === 'global'
     );
   }
 

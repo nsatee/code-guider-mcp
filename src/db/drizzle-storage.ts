@@ -9,8 +9,8 @@ import type {
   ProjectConfig,
   QualityRule,
   Workflow,
-} from '../types.js';
-import { DatabaseConnection } from './connection.js';
+} from '../types';
+import { DatabaseConnection } from './connection';
 import {
   memories,
   memoryRules,
@@ -18,7 +18,7 @@ import {
   qualityRules,
   templates,
   workflows,
-} from './schema.js';
+} from './schema';
 
 export class DrizzleStorage {
   private db: ReturnType<DatabaseConnection['getDrizzle']>;
@@ -64,10 +64,14 @@ export class DrizzleStorage {
       .where(eq(workflows.id, id))
       .limit(1);
 
-    if (result.length === 0) return null;
+    if (result.length === 0) {
+      return null;
+    }
 
     const row = result[0];
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
 
     return {
       id: row.id,
@@ -113,8 +117,8 @@ export class DrizzleStorage {
       .where(
         or(
           like(workflows.name, searchTerm),
-          like(workflows.description, searchTerm),
-        ),
+          like(workflows.description, searchTerm)
+        )
       )
       .orderBy(desc(workflows.createdAt));
 
@@ -168,10 +172,14 @@ export class DrizzleStorage {
       .where(eq(templates.id, id))
       .limit(1);
 
-    if (result.length === 0) return null;
+    if (result.length === 0) {
+      return null;
+    }
 
     const row = result[0];
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
 
     return {
       id: row.id,
@@ -213,8 +221,8 @@ export class DrizzleStorage {
       .where(
         or(
           like(templates.name, searchTerm),
-          like(templates.description, searchTerm),
-        ),
+          like(templates.description, searchTerm)
+        )
       )
       .orderBy(desc(templates.createdAt));
 
@@ -268,10 +276,14 @@ export class DrizzleStorage {
       .where(eq(qualityRules.id, id))
       .limit(1);
 
-    if (result.length === 0) return null;
+    if (result.length === 0) {
+      return null;
+    }
 
     const row = result[0];
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
 
     return {
       id: row.id,
@@ -331,7 +343,9 @@ export class DrizzleStorage {
       .where(eq(projectConfig.id, 'default'))
       .limit(1);
 
-    if (result.length === 0) return null;
+    if (result.length === 0) {
+      return null;
+    }
 
     return result[0]?.config as ProjectConfig;
   }
@@ -380,18 +394,23 @@ export class DrizzleStorage {
       .where(eq(memories.id, id))
       .limit(1);
 
-    if (result.length === 0) return null;
+    if (result.length === 0) {
+      return null;
+    }
 
     const row = result[0];
+    if (!row) {
+      return null;
+    }
     return {
       id: row.id,
       content: row.content,
       type: row.type as MemoryType,
       scope: row.scope as 'global' | 'project',
       category: row.category as MemoryCategory,
-      tags: row.tags,
+      tags: row.tags as string[],
       projectId: row.projectId || undefined,
-      context: row.context,
+      context: row.context as Record<string, unknown>,
       importance: row.importance,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -404,14 +423,20 @@ export class DrizzleStorage {
     type?: MemoryType,
     category?: MemoryCategory,
     scope?: 'global' | 'project',
-    limit: number = 50,
+    limit: number = 50
   ): Promise<Memory[]> {
     let query = this.db.select().from(memories);
 
-    const conditions = [];
-    if (type) conditions.push(eq(memories.type, type));
-    if (category) conditions.push(eq(memories.category, category));
-    if (scope) conditions.push(eq(memories.scope, scope));
+    const conditions: ReturnType<typeof eq>[] = [];
+    if (type) {
+      conditions.push(eq(memories.type, type));
+    }
+    if (category) {
+      conditions.push(eq(memories.category, category));
+    }
+    if (scope) {
+      conditions.push(eq(memories.scope, scope));
+    }
 
     if (conditions.length > 0) {
       query = query.where(and(...conditions));
@@ -427,9 +452,9 @@ export class DrizzleStorage {
       type: row.type as MemoryType,
       scope: row.scope as 'global' | 'project',
       category: row.category as MemoryCategory,
-      tags: row.tags,
+      tags: row.tags as string[],
       projectId: row.projectId || undefined,
-      context: row.context,
+      context: row.context as Record<string, unknown>,
       importance: row.importance,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -476,13 +501,10 @@ export class DrizzleStorage {
       .from(memories)
       .groupBy(memories.type);
 
-    const byType = typeResults.reduce(
-      (acc, row) => {
-        acc[row.type as MemoryType] = row.count;
-        return acc;
-      },
-      {} as Record<MemoryType, number>,
-    );
+    const byType = typeResults.reduce((acc, row) => {
+      acc[row.type as MemoryType] = row.count;
+      return acc;
+    }, {} as Record<MemoryType, number>);
 
     // Get counts by category
     const categoryResults = await this.db
@@ -490,13 +512,10 @@ export class DrizzleStorage {
       .from(memories)
       .groupBy(memories.category);
 
-    const byCategory = categoryResults.reduce(
-      (acc, row) => {
-        acc[row.category as MemoryCategory] = row.count;
-        return acc;
-      },
-      {} as Record<MemoryCategory, number>,
-    );
+    const byCategory = categoryResults.reduce((acc, row) => {
+      acc[row.category as MemoryCategory] = row.count;
+      return acc;
+    }, {} as Record<MemoryCategory, number>);
 
     // Get counts by scope
     const scopeResults = await this.db
@@ -504,13 +523,10 @@ export class DrizzleStorage {
       .from(memories)
       .groupBy(memories.scope);
 
-    const byScope = scopeResults.reduce(
-      (acc, row) => {
-        acc[row.scope as 'global' | 'project'] = row.count;
-        return acc;
-      },
-      {} as Record<'global' | 'project', number>,
-    );
+    const byScope = scopeResults.reduce((acc, row) => {
+      acc[row.scope as 'global' | 'project'] = row.count;
+      return acc;
+    }, {} as Record<'global' | 'project', number>);
 
     return { total, byType, byCategory, byScope };
   }
@@ -559,9 +575,14 @@ export class DrizzleStorage {
       .where(eq(memoryRules.id, id))
       .limit(1);
 
-    if (result.length === 0) return null;
+    if (result.length === 0) {
+      return null;
+    }
 
     const row = result[0];
+    if (!row) {
+      return null;
+    }
     return {
       id: row.id,
       name: row.name,
@@ -572,7 +593,7 @@ export class DrizzleStorage {
       memoryCategories: row.memoryCategories as MemoryCategory[],
       maxMemories: row.maxMemories,
       relevanceThreshold: row.relevanceThreshold,
-      context: row.context,
+      context: row.context as Record<string, unknown>,
       enabled: row.enabled === 1,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -598,7 +619,7 @@ export class DrizzleStorage {
       memoryCategories: row.memoryCategories as MemoryCategory[],
       maxMemories: row.maxMemories,
       relevanceThreshold: row.relevanceThreshold,
-      context: row.context,
+      context: row.context as Record<string, unknown>,
       enabled: row.enabled === 1,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

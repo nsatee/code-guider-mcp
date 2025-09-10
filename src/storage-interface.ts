@@ -9,7 +9,7 @@ import type {
   QualityRule,
   VectorSearchResult,
   Workflow,
-} from './types.js';
+} from './types';
 
 export interface CodeAnalysis {
   id: string;
@@ -36,19 +36,12 @@ export interface StorageInterface {
   saveTemplate(template: CodeTemplate): Promise<void>;
   getTemplate(id: string): Promise<CodeTemplate | null>;
   listTemplates(): Promise<CodeTemplate[]>;
-  searchTemplates(
-    query: string,
-    type?: string,
-    limit?: number,
-  ): Promise<VectorSearchResult[]>;
+  searchTemplates(query: string, type?: string, limit?: number): Promise<VectorSearchResult[]>;
 
   saveQualityRule(rule: QualityRule): Promise<void>;
   getQualityRule(id: string): Promise<QualityRule | null>;
   listQualityRules(): Promise<QualityRule[]>;
-  searchQualityRules(
-    query: string,
-    limit?: number,
-  ): Promise<VectorSearchResult[]>;
+  searchQualityRules(query: string, limit?: number): Promise<VectorSearchResult[]>;
 
   saveProjectConfig(config: ProjectConfig): Promise<void>;
   getProjectConfig(): Promise<ProjectConfig | null>;
@@ -56,14 +49,10 @@ export interface StorageInterface {
   // Vector operations
   saveCodeAnalysis(analysis: CodeAnalysis): Promise<void>;
   getCodeAnalysis(id: string): Promise<CodeAnalysis | null>;
-  findSimilarCode(
-    filePath: string,
-    content: string,
-    limit?: number,
-  ): Promise<VectorSearchResult[]>;
+  findSimilarCode(filePath: string, content: string, limit?: number): Promise<VectorSearchResult[]>;
   getCodeSuggestions(
     filePath: string,
-    content: string,
+    content: string
   ): Promise<{
     similarCode: VectorSearchResult[];
     suggestedWorkflows: VectorSearchResult[];
@@ -77,13 +66,13 @@ export interface StorageInterface {
     type?: MemoryType,
     category?: MemoryCategory,
     scope?: 'global' | 'project',
-    limit?: number,
+    limit?: number
   ): Promise<Memory[]>;
   searchMemories(
     query: string,
     type?: MemoryType,
     category?: MemoryCategory,
-    limit?: number,
+    limit?: number
   ): Promise<MemorySearchResult[]>;
   updateMemory(memory: Memory): Promise<void>;
   deleteMemory(id: string): Promise<void>;

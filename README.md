@@ -569,8 +569,14 @@ src/
 - `bun run db:migrate` - Apply Drizzle migrations
 - `bun run db:studio` - Open Drizzle Studio (database GUI)
 - `bun run test` - Run tests with Bun's test runner
-- `bun run lint` - Run ESLint
-- `bun run format` - Format code with Prettier
+- `bun run lint` - Run Biome linting on src/
+- `bun run lint:fix` - Fix linting issues automatically
+- `bun run format` - Format code with Biome
+- `bun run check` - Run both linting and formatting checks
+- `bun run check:fix` - Fix both linting and formatting issues
+- `bun run check:all` - Check entire project
+- `bun run format:all` - Format entire project
+- `bun run lint:all` - Lint entire project
 
 **Note**: All scripts use Bun's native tools for optimal performance. The migration script automatically handles the transition from file-based storage to hybrid storage with Bun SQLite.
 
@@ -618,6 +624,121 @@ The project uses **Bun's native bundler** instead of TypeScript compilation for 
 2. Add the tool handler in the `CallToolRequestSchema` handler
 3. Implement the tool logic
 4. Update documentation
+
+## Code Quality & Formatting
+
+### Biome Configuration
+
+This project uses **Biome** for linting and formatting, providing a fast and comprehensive code quality solution optimized for Bun:
+
+#### Features
+
+- ⚡ **Ultra-fast**: 10-100x faster than ESLint + Prettier
+- 🔧 **All-in-one**: Linting, formatting, and import organization
+- 🎯 **Zero config**: Works out of the box with sensible defaults
+- 🚀 **Bun optimized**: Native integration with Bun runtime
+- 📏 **Comprehensive rules**: 200+ linting rules for code quality
+- 🎨 **Consistent formatting**: Automatic code formatting and style enforcement
+
+#### Configuration
+
+The project includes a comprehensive `biome.json` configuration that enforces:
+
+**Code Quality Rules:**
+
+- ✅ No unused imports, variables, or functions
+- ✅ No unused classes, interfaces, types, or enums
+- ✅ No unused constants or parameters
+- ✅ DRY (Don't Repeat Yourself) code enforcement
+- ✅ No commented code (except TODO comments)
+- ✅ Consistent code style and formatting
+
+**File Coverage:**
+
+- TypeScript and JavaScript files
+- Scripts directory
+- Configuration files
+- Excludes test files, build artifacts, and dependencies
+
+**Formatting Standards:**
+
+- 2-space indentation
+- Single quotes for strings
+- Semicolons always
+- 100 character line width
+- LF line endings
+- Trailing commas (ES5 style)
+
+#### Available Scripts
+
+```bash
+# Linting
+bun run lint              # Lint src/ directory
+bun run lint:fix          # Fix linting issues automatically
+bun run lint:all          # Lint entire project
+bun run lint:all:fix      # Fix all linting issues
+
+# Formatting
+bun run format            # Format src/ directory
+bun run format:all        # Format entire project
+
+# Combined checks
+bun run check             # Check src/ (lint + format)
+bun run check:fix         # Fix src/ (lint + format)
+bun run check:all         # Check entire project
+bun run check:all:fix     # Fix entire project
+
+# Pre-commit hooks
+bun run pre-commit:install # Install pre-commit hooks
+bun run pre-commit:run     # Run pre-commit checks
+bun run pre-commit         # Install and run pre-commit checks
+```
+
+#### Pre-commit Hooks
+
+The project includes pre-commit hooks that automatically run:
+
+1. **Biome Check**: Linting and formatting validation
+2. **TypeScript Check**: Type checking with `tsc --noEmit`
+3. **Test Check**: Run test suite
+4. **Format Check**: Ensure code is properly formatted
+
+To set up pre-commit hooks:
+
+```bash
+# Install pre-commit hooks
+bun run pre-commit:install
+
+# Run all checks manually
+bun run pre-commit:run
+```
+
+#### IDE Integration
+
+For the best development experience, install the Biome extension in your IDE:
+
+- **VS Code**: [Biome extension](https://marketplace.visualstudio.com/items?itemName=biomejs.biome)
+- **Cursor**: Built-in support
+- **WebStorm/IntelliJ**: [Biome plugin](https://plugins.jetbrains.com/plugin/22794-biome)
+
+#### Configuration Details
+
+The `biome.json` configuration includes:
+
+- **Extended config**: Uses `@canonical/biome-config` for consistency
+- **Comprehensive rules**: 200+ linting rules across correctness, style, suspicious, complexity, performance, and security
+- **File patterns**: Includes TypeScript, JavaScript, and JSON files
+- **Test overrides**: Relaxed rules for test files
+- **Import organization**: Automatic import sorting and organization
+- **Format consistency**: Unified formatting across all file types
+
+#### Performance Benefits
+
+- **10-100x faster** than ESLint + Prettier
+- **Single tool** instead of multiple tools
+- **Native Bun integration** for optimal performance
+- **Parallel processing** for large codebases
+- **Incremental checking** for faster subsequent runs
 
 ## Configuration
 

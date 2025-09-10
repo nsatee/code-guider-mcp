@@ -1,5 +1,5 @@
-import { HybridStorage } from '../hybrid-storage.js';
-import type { CodeTemplate, QualityRule, Workflow } from '../types.js';
+import { HybridStorage } from '../hybrid-storage';
+import type { CodeTemplate, QualityRule, Workflow } from '../types';
 
 describe('HybridStorage', () => {
   let storage: HybridStorage;
@@ -37,9 +37,9 @@ describe('HybridStorage', () => {
           description: 'A test workflow',
           steps: [],
           qualityChecks: [],
-          tags: ['test'],
+          tags: ['test'],,
           templates: {},
-        }),
+        })
       );
       expect(retrieved?.createdAt).toBeDefined();
       expect(retrieved?.updatedAt).toBeDefined();
@@ -77,7 +77,7 @@ describe('HybridStorage', () => {
           variables: ['var1'],
           description: 'A test template',
           tags: ['test'],
-        }),
+        })
       );
       expect(retrieved?.createdAt).toBeDefined();
       expect(retrieved?.updatedAt).toBeDefined();
@@ -110,7 +110,7 @@ describe('HybridStorage', () => {
           severity: 'error',
           pattern: 'test-pattern',
           check: 'test check',
-        }),
+        })
       );
       expect(retrieved?.createdAt).toBeDefined();
       expect(retrieved?.updatedAt).toBeDefined();

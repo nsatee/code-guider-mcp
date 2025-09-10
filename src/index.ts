@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { CodeGuidanceMCPServer } from './mcp-server.js';
+import { CodeGuidanceMCPServer } from './mcp-server';
 
 async function main(): Promise<void> {
   const server = new CodeGuidanceMCPServer();

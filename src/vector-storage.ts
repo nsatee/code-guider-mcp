@@ -8,7 +8,7 @@ import type {
   ProjectConfig,
   QualityRule,
   Workflow,
-} from './types.js';
+} from './types';
 
 export interface VectorSearchResult {
   id: string;
@@ -33,7 +33,7 @@ export interface CodeAnalysis {
 
 export class VectorStorage {
   private db: Database;
-  private embeddingModel: any = null;
+  private embeddingModel: unknown = null;
 
   constructor(dbPath: string = '.guidance/guidance.db') {
     this.db = new Database(dbPath);
@@ -47,7 +47,7 @@ export class VectorStorage {
       const { pipeline } = await import('@xenova/transformers');
       this.embeddingModel = await pipeline(
         'feature-extraction',
-        'Xenova/all-MiniLM-L6-v2',
+        'Xenova/all-MiniLM-L6-v2'
       );
     } catch (error) {
       console.warn('Failed to load embedding model, using fallback:', error);
@@ -147,13 +147,15 @@ export class VectorStorage {
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
       hash = (hash << 5) - hash + char;
-      hash = hash & hash; // Convert to 32-bit integer
+      hash &= hash; // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(16);
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) return 0;
+    if (a.length !== b.length) {
+      return 0;
+    }
 
     let dotProduct = 0;
     let normA = 0;
@@ -172,7 +174,9 @@ export class VectorStorage {
 
   // Workflow operations with vector search
   async saveWorkflow(workflow: Workflow): Promise<void> {
-    const content = `${workflow.name} ${workflow.description} ${workflow.qualityChecks.join(' ')}`;
+    const content = `${workflow.name} ${
+      workflow.description
+    } ${workflow.qualityChecks.join(' ')}`;
     const embedding = await this.generateEmbedding(content);
     const metadata = {
       tags: workflow.tags,
@@ -191,7 +195,7 @@ export class VectorStorage {
       workflow.description,
       content,
       JSON.stringify(embedding),
-      JSON.stringify(metadata),
+      JSON.stringify(metadata)
     );
   }
 
@@ -199,37 +203,39 @@ export class VectorStorage {
     const stmt = this.db.prepare('SELECT * FROM workflows_vector WHERE id = ?');
     const row = stmt.get(id) as Record<string, unknown> | undefined;
 
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
 
     return {
-      id: row['id'] as string,
-      name: row['name'] as string,
-      description: row['description'] as string,
-      steps: JSON.parse(row['metadata'] as string).steps || [],
-      qualityChecks: JSON.parse(row['metadata'] as string).qualityChecks || [],
-      tags: JSON.parse(row['metadata'] as string).tags || [],
-      createdAt: row['created_at'] as string,
-      updatedAt: row['updated_at'] as string,
+      id: row.id as string,
+      name: row.name as string,
+      description: row.description as string,
+      steps: JSON.parse(row.metadata as string).steps || [],
+      qualityChecks: JSON.parse(row.metadata as string).qualityChecks || [],
+      tags: JSON.parse(row.metadata as string).tags || [],
+      createdAt: row.created_at as string,
+      updatedAt: row.updated_at as string,
     };
   }
 
   async searchWorkflows(
     query: string,
-    limit: number = 10,
+    limit: number = 10
   ): Promise<VectorSearchResult[]> {
     const queryEmbedding = await this.generateEmbedding(query);
     const stmt = this.db.prepare('SELECT * FROM workflows_vector');
     const rows = stmt.all() as Record<string, unknown>[];
 
     const results = rows.map((row) => {
-      const embedding = JSON.parse(row['embedding'] as string);
+      const embedding = JSON.parse(row.embedding as string);
       const similarity = this.cosineSimilarity(queryEmbedding, embedding);
 
       return {
-        id: row['id'] as string,
-        content: row['content'] as string,
+        id: row.id as string,
+        content: row.content as string,
         similarity,
-        metadata: JSON.parse(row['metadata'] as string),
+        metadata: JSON.parse(row.metadata as string),
       };
     });
 
@@ -257,40 +263,40 @@ export class VectorStorage {
       template.type,
       template.content,
       JSON.stringify(embedding),
-      JSON.stringify(metadata),
+      JSON.stringify(metadata)
     );
   }
 
   async searchTemplates(
     query: string,
     type?: string,
-    limit: number = 10,
+    limit: number = 10
   ): Promise<VectorSearchResult[]> {
     const queryEmbedding = await this.generateEmbedding(query);
     const whereClause = type ? 'WHERE type = ?' : '';
     const stmt = this.db.prepare(
-      `SELECT * FROM templates_vector ${whereClause}`,
+      `SELECT * FROM templates_vector ${whereClause}`
     );
     const rows = type
       ? stmt.all(type)
       : (stmt.all() as Record<string, unknown>[]);
 
     const results = rows.map((row: Record<string, unknown>) => {
-      const embedding = JSON.parse(row['embedding'] as string);
+      const embedding = JSON.parse(row.embedding as string);
       const similarity = this.cosineSimilarity(queryEmbedding, embedding);
 
       return {
-        id: row['id'] as string,
-        content: row['content'] as string,
+        id: row.id as string,
+        content: row.content as string,
         similarity,
-        metadata: JSON.parse(row['metadata'] as string),
+        metadata: JSON.parse(row.metadata as string),
       };
     });
 
     return results
       .sort(
         (a: VectorSearchResult, b: VectorSearchResult) =>
-          b.similarity - a.similarity,
+          b.similarity - a.similarity
       )
       .slice(0, limit);
   }
@@ -308,32 +314,32 @@ export class VectorStorage {
       analysis.filePath,
       analysis.content,
       JSON.stringify(embedding),
-      JSON.stringify(analysis.analysis),
+      JSON.stringify(analysis.analysis)
     );
   }
 
   async findSimilarCode(
     filePath: string,
     content: string,
-    limit: number = 5,
+    limit: number = 5
   ): Promise<VectorSearchResult[]> {
     const queryEmbedding = await this.generateEmbedding(content);
     const stmt = this.db.prepare(
-      'SELECT * FROM code_analysis WHERE file_path != ?',
+      'SELECT * FROM code_analysis WHERE file_path != ?'
     );
     const rows = stmt.all(filePath) as Record<string, unknown>[];
 
     const results = rows.map((row) => {
-      const embedding = JSON.parse(row['embedding'] as string);
+      const embedding = JSON.parse(row.embedding as string);
       const similarity = this.cosineSimilarity(queryEmbedding, embedding);
 
       return {
-        id: row['id'] as string,
-        content: row['content'] as string,
+        id: row.id as string,
+        content: row.content as string,
         similarity,
         metadata: {
-          filePath: row['file_path'] as string,
-          analysis: JSON.parse(row['analysis'] as string),
+          filePath: row.file_path as string,
+          analysis: JSON.parse(row.analysis as string),
         },
       };
     });
@@ -344,7 +350,7 @@ export class VectorStorage {
   // AI-powered code suggestions
   async getCodeSuggestions(
     filePath: string,
-    content: string,
+    content: string
   ): Promise<{
     similarCode: VectorSearchResult[];
     suggestedWorkflows: VectorSearchResult[];
@@ -385,27 +391,27 @@ export class VectorStorage {
       rule.description,
       content,
       JSON.stringify(embedding),
-      JSON.stringify(metadata),
+      JSON.stringify(metadata)
     );
   }
 
   async searchQualityRules(
     query: string,
-    limit: number = 10,
+    limit: number = 10
   ): Promise<VectorSearchResult[]> {
     const queryEmbedding = await this.generateEmbedding(query);
     const stmt = this.db.prepare('SELECT * FROM quality_rules_vector');
     const rows = stmt.all() as Record<string, unknown>[];
 
     const results = rows.map((row) => {
-      const embedding = JSON.parse(row['embedding'] as string);
+      const embedding = JSON.parse(row.embedding as string);
       const similarity = this.cosineSimilarity(queryEmbedding, embedding);
 
       return {
-        id: row['id'] as string,
-        content: row['content'] as string,
+        id: row.id as string,
+        content: row.content as string,
         similarity,
-        metadata: JSON.parse(row['metadata'] as string),
+        metadata: JSON.parse(row.metadata as string),
       };
     });
 
@@ -424,74 +430,74 @@ export class VectorStorage {
 
   async getProjectConfig(): Promise<ProjectConfig | null> {
     const stmt = this.db.prepare(
-      'SELECT config FROM project_config WHERE id = ?',
+      'SELECT config FROM project_config WHERE id = ?'
     );
     const row = stmt.get('default') as Record<string, unknown> | undefined;
 
-    return row ? JSON.parse(row['config'] as string) : null;
+    return row ? JSON.parse(row.config as string) : null;
   }
 
   // Utility methods
   async listWorkflows(): Promise<Workflow[]> {
     const stmt = this.db.prepare(
-      'SELECT * FROM workflows_vector ORDER BY created_at DESC',
+      'SELECT * FROM workflows_vector ORDER BY created_at DESC'
     );
     const rows = stmt.all() as Record<string, unknown>[];
 
     return rows.map((row) => ({
-      id: row['id'] as string,
-      name: row['name'] as string,
-      description: row['description'] as string,
-      steps: JSON.parse(row['metadata'] as string).steps || [],
-      qualityChecks: JSON.parse(row['metadata'] as string).qualityChecks || [],
-      tags: JSON.parse(row['metadata'] as string).tags || [],
-      createdAt: row['created_at'] as string,
-      updatedAt: row['updated_at'] as string,
+      id: row.id as string,
+      name: row.name as string,
+      description: row.description as string,
+      steps: JSON.parse(row.metadata as string).steps || [],
+      qualityChecks: JSON.parse(row.metadata as string).qualityChecks || [],
+      tags: JSON.parse(row.metadata as string).tags || [],
+      createdAt: row.created_at as string,
+      updatedAt: row.updated_at as string,
     }));
   }
 
   async listTemplates(): Promise<CodeTemplate[]> {
     const stmt = this.db.prepare(
-      'SELECT * FROM templates_vector ORDER BY created_at DESC',
+      'SELECT * FROM templates_vector ORDER BY created_at DESC'
     );
     const rows = stmt.all() as Record<string, unknown>[];
 
     return rows.map((row) => ({
-      id: row['id'] as string,
-      name: row['name'] as string,
-      type: row['type'] as
+      id: row.id as string,
+      name: row.name as string,
+      type: row.type as
         | 'component'
         | 'function'
         | 'class'
         | 'interface'
         | 'test'
         | 'config',
-      content: row['content'] as string,
-      variables: JSON.parse(row['metadata'] as string).variables || [],
-      description: row['description'] as string,
-      tags: JSON.parse(row['metadata'] as string).tags || [],
+      content: row.content as string,
+      variables: JSON.parse(row.metadata as string).variables || [],
+      description: row.description as string,
+      tags: JSON.parse(row.metadata as string).tags || [],
     }));
   }
 
   async listQualityRules(): Promise<QualityRule[]> {
     const stmt = this.db.prepare(
-      'SELECT * FROM quality_rules_vector ORDER BY created_at DESC',
+      'SELECT * FROM quality_rules_vector ORDER BY created_at DESC'
     );
     const rows = stmt.all() as Record<string, unknown>[];
 
     return rows.map((row) => ({
-      id: row['id'] as string,
-      name: row['name'] as string,
-      description: row['description'] as string,
-      type: row['type'] as
+      id: row.id as string,
+      name: row.name as string,
+      description: row.description as string,
+      type: row.type as
         | 'lint'
         | 'test'
         | 'security'
         | 'performance'
         | 'accessibility',
-      severity: row['severity'] as 'error' | 'warning' | 'info',
-      pattern: JSON.parse(row['metadata'] as string).pattern,
-      check: row['description'] as string,
+      severity: row.severity as 'error' | 'warning' | 'info',
+      pattern: JSON.parse(row.metadata as string).pattern,
+      check: row.description as string,
     }));
   }
 
@@ -531,7 +537,7 @@ export class VectorStorage {
       memory.createdAt,
       memory.updatedAt,
       memory.lastAccessed,
-      memory.accessCount,
+      memory.accessCount
     );
   }
 
@@ -539,7 +545,7 @@ export class VectorStorage {
     query: string,
     type?: MemoryType,
     category?: MemoryCategory,
-    limit: number = 10,
+    limit: number = 10
   ): Promise<MemorySearchResult[]> {
     const queryEmbedding = await this.generateEmbedding(query);
     const queryVector = Buffer.from(new Float32Array(queryEmbedding).buffer);
@@ -574,28 +580,29 @@ export class VectorStorage {
 
     return rows.map((row) => {
       const memory: Memory = {
-        id: row['id'] as string,
-        content: row['content'] as string,
-        type: row['type'] as MemoryType,
-        scope: row['scope'] as 'global' | 'project',
-        category: row['category'] as MemoryCategory,
-        tags: JSON.parse(row['tags'] as string),
-        context: JSON.parse(row['context'] as string),
-        importance: row['importance'] as number,
-        createdAt: row['created_at'] as string,
-        updatedAt: row['updated_at'] as string,
-        lastAccessed: row['last_accessed'] as string,
-        accessCount: row['access_count'] as number,
+        id: row.id as string,
+        content: row.content as string,
+        type: row.type as MemoryType,
+        scope: row.scope as 'global' | 'project',
+        category: row.category as MemoryCategory,
+        tags: JSON.parse(row.tags as string),
+        projectId: row.projectId as string | undefined,
+        context: JSON.parse(row.context as string),
+        importance: row.importance as number,
+        createdAt: row.created_at as string,
+        updatedAt: row.updated_at as string,
+        lastAccessed: row.last_accessed as string,
+        accessCount: row.access_count as number,
       };
 
-      if (row['project_id']) {
-        memory.projectId = row['project_id'] as string;
+      if (row.project_id) {
+        memory.projectId = row.project_id as string;
       }
 
       return {
         memory,
-        relevance: row['similarity'] as number,
-        context: `Memory about ${row['type']} in ${row['category']} category`,
+        relevance: row.similarity as number,
+        context: `Memory about ${row.type} in ${row.category} category`,
       };
     });
   }

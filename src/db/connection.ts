@@ -1,16 +1,12 @@
 import { Database } from 'bun:sqlite';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
-import * as schema from './schema.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import * as schema from './schema';
 
 export class DatabaseConnection {
   private static instance: DatabaseConnection;
-  private db: Database.Database;
+  private db: Database;
   private drizzle: ReturnType<typeof drizzle>;
 
   private constructor(dbPath: string = '.guidance/guidance.db') {
@@ -35,14 +31,14 @@ export class DatabaseConnection {
     return this.drizzle;
   }
 
-  public getRawDb(): Database.Database {
+  public getRawDb(): Database {
     return this.db;
   }
 
   public async runMigrations() {
     try {
       await migrate(this.drizzle, {
-        migrationsFolder: join(__dirname, '../../drizzle'),
+        migrationsFolder: join(process.cwd(), 'drizzle'),
       });
     } catch (error) {
       console.warn('Migration failed, continuing with existing schema:', error);

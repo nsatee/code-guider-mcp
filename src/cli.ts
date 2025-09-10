@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
-import { spawn } from 'node:child_process';
+import { type ChildProcess, spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
-import { ProjectManager } from './project-manager.js';
+import { ProjectManager } from './project-manager';
+import type { ProjectInfo } from './types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -44,7 +45,7 @@ Examples:
   code-guider-mcp --studio                  # Open database studio
 
 For more information, visit: https://github.com/yourusername/code-guider
-`),
+`)
   );
 }
 
@@ -88,50 +89,64 @@ async function openStudio() {
   });
 }
 
-async function startServer(options: {
-  port?: string;
-  host?: string;
-  verbose?: boolean;
+async function validateProjectContext(options: {
   global?: boolean;
   projectPath?: string;
 }) {
-  console.log(chalk.cyan('🚀 Starting Code Guider MCP Server...'));
-
-  const projectManager = ProjectManager.getInstance();
-  let projectInfo = null;
-
-  // Determine project context
   if (options.global) {
     console.log(chalk.yellow('🌍 Using global storage mode'));
-  } else {
-    const targetPath = options.projectPath || process.cwd();
-    projectInfo = await projectManager.getProjectInfo(targetPath);
-
-    if (!projectInfo) {
-      console.log(chalk.yellow(`⚠️  Project not initialized at: ${targetPath}`));
-      console.log(chalk.cyan('💡 Run with --init to initialize this project'));
-      console.log(chalk.cyan('   Or use --global to use global storage'));
-      process.exit(1);
-    }
-
-    console.log(
-      chalk.green(
-        `📁 Using project: ${projectInfo.name} (${projectInfo.type})`,
-      ),
-    );
+    return null;
   }
 
-  if (options.verbose) {
-    console.log(chalk.gray(`Port: ${options.port || '3000'}`));
-    console.log(chalk.gray(`Host: ${options.host || 'localhost'}`));
-    console.log(chalk.gray(`Mode: ${options.global ? 'Global' : 'Project'}`));
-    if (projectInfo) {
-      console.log(chalk.gray(`Project Path: ${projectInfo.path}`));
-    }
+  const projectManager = ProjectManager.getInstance();
+  const targetPath = options.projectPath || process.cwd();
+  const projectInfo = await projectManager.getProjectInfo(targetPath);
+
+  if (!projectInfo) {
+    console.log(chalk.yellow(`⚠️  Project not initialized at: ${targetPath}`));
+    console.log(chalk.cyan('💡 Run with --init to initialize this project'));
+    console.log(chalk.cyan('   Or use --global to use global storage'));
+    process.exit(1);
   }
 
-  const serverPath = join(__dirname, 'index.js');
-  const serverProcess = spawn('node', [serverPath], {
+  console.log(
+    chalk.green(`📁 Using project: ${projectInfo.name} (${projectInfo.type})`)
+  );
+  return projectInfo;
+}
+
+function logVerboseInfo(
+  options: {
+    port?: string;
+    host?: string;
+    verbose?: boolean;
+    global?: boolean;
+  },
+  projectInfo: ProjectInfo | null
+) {
+  if (!options.verbose) {
+    return;
+  }
+
+  console.log(chalk.gray(`Port: ${options.port || '3000'}`));
+  console.log(chalk.gray(`Host: ${options.host || 'localhost'}`));
+  console.log(chalk.gray(`Mode: ${options.global ? 'Global' : 'Project'}`));
+  if (projectInfo) {
+    console.log(chalk.gray(`Project Path: ${projectInfo.path}`));
+  }
+}
+
+function setupServerProcess(
+  options: {
+    port?: string;
+    host?: string;
+    verbose?: boolean;
+    global?: boolean;
+  },
+  projectInfo: ProjectInfo | null
+) {
+  const serverPath = join(__dirname, 'index.ts');
+  const serverProcess = spawn('bun', [serverPath], {
     stdio: 'inherit',
     cwd: process.cwd(),
     env: {
@@ -151,16 +166,32 @@ async function startServer(options: {
     }
   });
 
-  // Handle graceful shutdown
-  process.on('SIGINT', () => {
-    console.log(chalk.yellow('\n🛑 Shutting down server...'));
-    serverProcess.kill('SIGINT');
-  });
+  return serverProcess;
+}
 
-  process.on('SIGTERM', () => {
+function setupGracefulShutdown(serverProcess: ChildProcess) {
+  const shutdownHandler = (signal: string) => {
     console.log(chalk.yellow('\n🛑 Shutting down server...'));
-    serverProcess.kill('SIGTERM');
-  });
+    serverProcess.kill(signal as NodeJS.Signals);
+  };
+
+  process.on('SIGINT', () => shutdownHandler('SIGINT'));
+  process.on('SIGTERM', () => shutdownHandler('SIGTERM'));
+}
+
+async function startServer(options: {
+  port?: string;
+  host?: string;
+  verbose?: boolean;
+  global?: boolean;
+  projectPath?: string;
+}) {
+  console.log(chalk.cyan('🚀 Starting Code Guider MCP Server...'));
+
+  const projectInfo = await validateProjectContext(options);
+  logVerboseInfo(options, projectInfo);
+  const serverProcess = setupServerProcess(options, projectInfo);
+  setupGracefulShutdown(serverProcess);
 }
 
 async function listProjects() {
@@ -171,7 +202,7 @@ async function listProjects() {
 
   if (projects.length === 0) {
     console.log(
-      chalk.yellow('No projects found. Use --init to initialize a project.'),
+      chalk.yellow('No projects found. Use --init to initialize a project.')
     );
     return;
   }
@@ -185,7 +216,7 @@ async function listProjects() {
     console.log(`   Frameworks: ${project.frameworks.join(', ') || 'None'}`);
     console.log(`   Languages: ${project.languages.join(', ') || 'None'}`);
     console.log(
-      `   Last Used: ${new Date(project.lastUsed).toLocaleDateString()}`,
+      `   Last Used: ${new Date(project.lastUsed).toLocaleDateString()}`
     );
     console.log('');
   }
@@ -205,21 +236,21 @@ async function initializeProject(projectPath?: string) {
     console.log(chalk.cyan(`🔧 Type: ${projectInfo.type}`));
     console.log(
       chalk.cyan(
-        `⚡ Frameworks: ${projectInfo.frameworks.join(', ') || 'None'}`,
-      ),
+        `⚡ Frameworks: ${projectInfo.frameworks.join(', ') || 'None'}`
+      )
     );
     console.log(
-      chalk.cyan(`💻 Languages: ${projectInfo.languages.join(', ') || 'None'}`),
-    );
-    console.log(
-      chalk.gray(
-        `\n💡 Project database created at: ${targetPath}/.guidance/guidance.db`,
-      ),
+      chalk.cyan(`💻 Languages: ${projectInfo.languages.join(', ') || 'None'}`)
     );
     console.log(
       chalk.gray(
-        `   Global templates and workflows have been synced to this project.`,
-      ),
+        `\n💡 Project database created at: ${targetPath}/.guidance/guidance.db`
+      )
+    );
+    console.log(
+      chalk.gray(
+        `   Global templates and workflows have been synced to this project.`
+      )
     );
   } catch (error) {
     console.error(chalk.red('❌ Failed to initialize project:'), error);
@@ -256,11 +287,11 @@ async function main() {
 
       case '--port':
       case '-p':
-        options.port = args[++i];
+        options.port = args[++i] || '3000';
         break;
 
       case '--host':
-        options.host = args[++i];
+        options.host = args[++i] || 'localhost';
         break;
 
       case '--migrate':
@@ -288,11 +319,11 @@ async function main() {
         break;
 
       default:
-        if (arg.startsWith('-')) {
+        if (arg?.startsWith('-')) {
           console.error(chalk.red(`Unknown option: ${arg}`));
           console.log('Use --help for usage information');
           process.exit(1);
-        } else {
+        } else if (arg) {
           // Treat as project path
           options.projectPath = arg;
         }

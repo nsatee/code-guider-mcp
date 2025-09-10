@@ -1,11 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { StorageInterface } from './storage-interface.js';
+import type { StorageInterface } from './storage-interface';
 import type {
   QualityCheckResult,
   RoleTransition,
   StepExecution,
   WorkflowExecution,
-} from './types.js';
+} from './types';
 
 export class ExecutionTracker {
   private storage: StorageInterface;
@@ -19,7 +19,7 @@ export class ExecutionTracker {
   async createExecution(
     workflowId: string,
     initialRole: string,
-    context: Record<string, unknown> = {},
+    context: Record<string, unknown> = {}
   ): Promise<WorkflowExecution> {
     const execution: WorkflowExecution = {
       id: uuidv4(),
@@ -70,10 +70,12 @@ export class ExecutionTracker {
 
   async updateExecution(
     executionId: string,
-    updates: Partial<WorkflowExecution>,
+    updates: Partial<WorkflowExecution>
   ): Promise<WorkflowExecution | null> {
     const execution = await this.getExecution(executionId);
-    if (!execution) return null;
+    if (!execution) {
+      return null;
+    }
 
     const updatedExecution: WorkflowExecution = {
       ...execution,
@@ -91,7 +93,7 @@ export class ExecutionTracker {
     executionId: string,
     stepId: string,
     roleId: string,
-    context: Record<string, unknown> = {},
+    context: Record<string, unknown> = {}
   ): Promise<StepExecution> {
     const stepExecution: StepExecution = {
       id: uuidv4(),
@@ -112,10 +114,12 @@ export class ExecutionTracker {
 
   async updateStepExecution(
     stepExecutionId: string,
-    updates: Partial<StepExecution>,
+    updates: Partial<StepExecution>
   ): Promise<StepExecution | null> {
     const stepExecution = this.stepExecutions.get(stepExecutionId);
-    if (!stepExecution) return null;
+    if (!stepExecution) {
+      return null;
+    }
 
     const updatedStepExecution: StepExecution = {
       ...stepExecution,
@@ -138,10 +142,12 @@ export class ExecutionTracker {
     executionId: string,
     toRoleId: string,
     handoffNotes: string,
-    context: Record<string, unknown> = {},
+    context: Record<string, unknown> = {}
   ): Promise<WorkflowExecution | null> {
     const execution = await this.getExecution(executionId);
-    if (!execution) return null;
+    if (!execution) {
+      return null;
+    }
 
     const transition: RoleTransition = {
       fromRole: execution.currentRole,
@@ -168,10 +174,12 @@ export class ExecutionTracker {
     executionId: string,
     stepId: string,
     _result: string,
-    metrics: Record<string, unknown> = {},
+    metrics: Record<string, unknown> = {}
   ): Promise<WorkflowExecution | null> {
     const execution = await this.getExecution(executionId);
-    if (!execution) return null;
+    if (!execution) {
+      return null;
+    }
 
     const updatedExecution = await this.updateExecution(executionId, {
       completedSteps: [...execution.completedSteps, stepId],
@@ -187,16 +195,18 @@ export class ExecutionTracker {
 
   async addQualityCheck(
     stepExecutionId: string,
-    qualityCheck: QualityCheckResult,
+    qualityCheck: QualityCheckResult
   ): Promise<StepExecution | null> {
     const stepExecution = this.stepExecutions.get(stepExecutionId);
-    if (!stepExecution) return null;
+    if (!stepExecution) {
+      return null;
+    }
 
     const updatedStepExecution = await this.updateStepExecution(
       stepExecutionId,
       {
         qualityChecks: [...stepExecution.qualityChecks, qualityCheck],
-      },
+      }
     );
 
     return updatedStepExecution;
@@ -208,10 +218,12 @@ export class ExecutionTracker {
     roleTransitions: RoleTransition[];
   } | null> {
     const execution = await this.getExecution(executionId);
-    if (!execution) return null;
+    if (!execution) {
+      return null;
+    }
 
     const stepExecutions = Array.from(this.stepExecutions.values()).filter(
-      (step) => step.executionId === executionId,
+      (step) => step.executionId === executionId
     );
 
     return {
@@ -223,19 +235,19 @@ export class ExecutionTracker {
 
   async getExecutionsByStatus(status: string): Promise<WorkflowExecution[]> {
     return Array.from(this.executions.values()).filter(
-      (execution) => execution.status === status,
+      (execution) => execution.status === status
     );
   }
 
   async getExecutionsByRole(roleId: string): Promise<WorkflowExecution[]> {
     return Array.from(this.executions.values()).filter(
-      (execution) => execution.currentRole === roleId,
+      (execution) => execution.currentRole === roleId
     );
   }
 
   async pauseExecution(
     executionId: string,
-    reason: string,
+    reason: string
   ): Promise<WorkflowExecution | null> {
     return this.updateExecution(executionId, {
       status: 'paused',
@@ -247,10 +259,12 @@ export class ExecutionTracker {
   }
 
   async resumeExecution(
-    executionId: string,
+    executionId: string
   ): Promise<WorkflowExecution | null> {
     const execution = await this.getExecution(executionId);
-    if (!execution) return null;
+    if (!execution) {
+      return null;
+    }
 
     return this.updateExecution(executionId, {
       status: 'running',
@@ -263,17 +277,17 @@ export class ExecutionTracker {
 
   async completeExecution(
     executionId: string,
-    finalMetrics: Record<string, unknown> = {},
+    finalMetrics: Record<string, unknown> = {}
   ): Promise<WorkflowExecution | null> {
     return this.updateExecution(executionId, {
       status: 'completed',
       completedAt: new Date().toISOString(),
       metrics: {
-        filesCreated: finalMetrics.filesCreated || 0,
-        filesModified: finalMetrics.filesModified || 0,
-        testsWritten: finalMetrics.testsWritten || 0,
-        coverage: finalMetrics.coverage || 0,
-        qualityScore: finalMetrics.qualityScore || 0,
+        filesCreated: (finalMetrics['filesCreated'] as number) || 0,
+        filesModified: (finalMetrics['filesModified'] as number) || 0,
+        testsWritten: (finalMetrics['testsWritten'] as number) || 0,
+        coverage: (finalMetrics['coverage'] as number) || 0,
+        qualityScore: (finalMetrics['qualityScore'] as number) || 0,
         ...finalMetrics,
       },
     });
@@ -282,7 +296,7 @@ export class ExecutionTracker {
   async failExecution(
     executionId: string,
     reason: string,
-    error?: Error,
+    error?: Error
   ): Promise<WorkflowExecution | null> {
     return this.updateExecution(executionId, {
       status: 'failed',
@@ -303,21 +317,23 @@ export class ExecutionTracker {
     roleTransitions: number;
   } | null> {
     const history = await this.getExecutionHistory(executionId);
-    if (!history) return null;
+    if (!history) {
+      return null;
+    }
 
     const { execution, stepExecutions } = history;
     const completedSteps = stepExecutions.filter(
-      (step) => step.status === 'completed',
+      (step) => step.status === 'completed'
     );
     const startedAt = execution.startedAt;
     if (!startedAt) {
       return {
-        executionId,
-        totalTime: 0,
-        status: execution.status,
-        stepsCompleted: execution.completedSteps.length,
-        currentStep: execution.currentStep,
-        metrics: execution.metrics,
+        totalSteps: execution.completedSteps.length + 1, // Approximate total steps
+        completedSteps: execution.completedSteps.length,
+        successRate: 0,
+        averageStepTime: 0,
+        qualityScore: 0,
+        roleTransitions: 0,
       };
     }
 
@@ -360,13 +376,15 @@ export class ExecutionTracker {
   }
 
   private async loadExecution(
-    executionId: string,
+    executionId: string
   ): Promise<WorkflowExecution | null> {
     // Load from vector storage
     const analysis = await this.storage.getCodeAnalysis(
-      `execution-${executionId}`,
+      `execution-${executionId}`
     );
-    if (!analysis) return null;
+    if (!analysis) {
+      return null;
+    }
 
     // This is a simplified implementation
     // In a real implementation, you'd store the full execution data
@@ -396,7 +414,7 @@ export class ExecutionTracker {
   }
 
   private async getCodeAnalysis(
-    _id: string,
+    _id: string
   ): Promise<Record<string, unknown> | null> {
     // This would be implemented in the vector storage
     return null;

@@ -1,18 +1,7 @@
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import type {
-  CodeTemplate,
-  ProjectConfig,
-  QualityRule,
-  Workflow,
-} from './types.js';
+import type { CodeTemplate, ProjectConfig, QualityRule, Workflow } from './types';
 
 export class LocalStorage {
   private basePath: string;
@@ -52,9 +41,7 @@ export class LocalStorage {
       return [];
     }
 
-    const files = readdirSync(workflowsDir).filter((f: string) =>
-      f.endsWith('.json'),
-    );
+    const files = readdirSync(workflowsDir).filter((f: string) => f.endsWith('.json'));
     const workflows: Workflow[] = [];
 
     for (const file of files) {
@@ -98,9 +85,7 @@ export class LocalStorage {
       return [];
     }
 
-    const files = readdirSync(templatesDir).filter((f: string) =>
-      f.endsWith('.yaml'),
-    );
+    const files = readdirSync(templatesDir).filter((f: string) => f.endsWith('.yaml'));
     const templates: CodeTemplate[] = [];
 
     for (const file of files) {
@@ -137,9 +122,7 @@ export class LocalStorage {
       return [];
     }
 
-    const files = readdirSync(rulesDir).filter((f: string) =>
-      f.endsWith('.json'),
-    );
+    const files = readdirSync(rulesDir).filter((f: string) => f.endsWith('.json'));
     const rules: QualityRule[] = [];
 
     for (const file of files) {
@@ -177,9 +160,7 @@ export class LocalStorage {
       (workflow) =>
         workflow.name.toLowerCase().includes(query.toLowerCase()) ||
         workflow.description.toLowerCase().includes(query.toLowerCase()) ||
-        workflow.tags.some((tag) =>
-          tag.toLowerCase().includes(query.toLowerCase()),
-        ),
+        workflow.tags.some((tag) => tag.toLowerCase().includes(query.toLowerCase()))
     );
   }
 
@@ -189,9 +170,7 @@ export class LocalStorage {
       (template) =>
         template.name.toLowerCase().includes(query.toLowerCase()) ||
         template.description.toLowerCase().includes(query.toLowerCase()) ||
-        template.tags.some((tag) =>
-          tag.toLowerCase().includes(query.toLowerCase()),
-        ),
+        template.tags.some((tag) => tag.toLowerCase().includes(query.toLowerCase()))
     );
   }
 }

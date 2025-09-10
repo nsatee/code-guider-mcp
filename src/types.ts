@@ -171,7 +171,7 @@ export interface Memory {
   scope: MemoryScope;
   category: MemoryCategory;
   tags: string[];
-  projectId?: string;
+  projectId: string | undefined;
   context: Record<string, unknown>;
   importance: number; // 1-10 scale
   createdAt: string;
@@ -235,13 +235,7 @@ export interface MemoryRule {
 }
 
 export interface MemoryRuleTrigger {
-  type:
-    | 'file_path'
-    | 'project_type'
-    | 'workflow_step'
-    | 'code_analysis'
-    | 'user_query'
-    | 'always';
+  type: 'file_path' | 'project_type' | 'workflow_step' | 'code_analysis' | 'user_query' | 'always';
   patterns: string[];
   conditions: Record<string, unknown>;
 }

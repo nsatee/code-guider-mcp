@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
-import type { CodeAnalysis, StorageInterface } from './storage-interface.js';
+import type { CodeAnalysis, StorageInterface } from './storage-interface';
 import type {
   GuidanceContext,
   VectorSearchResult,
   WorkflowStep,
-} from './types.js';
+} from './types';
 
 export interface AIGuidanceResult {
   suggestions: string[];
@@ -33,7 +33,7 @@ export class AIGuidanceEngine {
 
   async analyzeCode(
     filePath: string,
-    _context: GuidanceContext,
+    _context: GuidanceContext
   ): Promise<AIGuidanceResult> {
     if (!existsSync(filePath)) {
       return this.getEmptyResult();
@@ -54,7 +54,7 @@ export class AIGuidanceEngine {
     const patterns = await this.detectPatterns(content);
     const recommendations = await this.generateRecommendations(
       analysis,
-      patterns,
+      patterns
     );
 
     return {
@@ -71,7 +71,7 @@ export class AIGuidanceEngine {
 
   private async performCodeAnalysis(
     filePath: string,
-    content: string,
+    content: string
   ): Promise<CodeAnalysis> {
     const complexity = this.calculateComplexity(content);
     const patterns = await this.detectPatterns(content);
@@ -118,14 +118,25 @@ export class AIGuidanceEngine {
         classComplexity +
         controlComplexity +
         importComplexity,
-      100,
+      100
     );
   }
 
   private async detectPatterns(content: string): Promise<string[]> {
     const patterns: string[] = [];
 
-    // React patterns
+    patterns.push(...this.detectReactPatterns(content));
+    patterns.push(...this.detectApiPatterns(content));
+    patterns.push(...this.detectTypeScriptPatterns(content));
+    patterns.push(...this.detectTestingPatterns(content));
+    patterns.push(...this.detectErrorHandlingPatterns(content));
+
+    return patterns;
+  }
+
+  private detectReactPatterns(content: string): string[] {
+    const patterns: string[] = [];
+
     if (content.includes('React') || content.includes('jsx')) {
       patterns.push('react-component');
     }
@@ -136,7 +147,12 @@ export class AIGuidanceEngine {
       patterns.push('default-export');
     }
 
-    // API patterns
+    return patterns;
+  }
+
+  private detectApiPatterns(content: string): string[] {
+    const patterns: string[] = [];
+
     if (content.includes('express') || content.includes('req, res')) {
       patterns.push('api-endpoint');
     }
@@ -144,7 +160,12 @@ export class AIGuidanceEngine {
       patterns.push('async-function');
     }
 
-    // TypeScript patterns
+    return patterns;
+  }
+
+  private detectTypeScriptPatterns(content: string): string[] {
+    const patterns: string[] = [];
+
     if (content.includes('interface') || content.includes('type')) {
       patterns.push('typescript-types');
     }
@@ -152,7 +173,12 @@ export class AIGuidanceEngine {
       patterns.push('any-type-usage');
     }
 
-    // Testing patterns
+    return patterns;
+  }
+
+  private detectTestingPatterns(content: string): string[] {
+    const patterns: string[] = [];
+
     if (
       content.includes('describe') ||
       content.includes('it(') ||
@@ -161,7 +187,12 @@ export class AIGuidanceEngine {
       patterns.push('test-file');
     }
 
-    // Error handling patterns
+    return patterns;
+  }
+
+  private detectErrorHandlingPatterns(content: string): string[] {
+    const patterns: string[] = [];
+
     if (content.includes('try') && content.includes('catch')) {
       patterns.push('error-handling');
     }
@@ -174,21 +205,21 @@ export class AIGuidanceEngine {
 
   private async generateSuggestions(
     content: string,
-    patterns: string[],
+    patterns: string[]
   ): Promise<string[]> {
     const suggestions: string[] = [];
 
     // TypeScript suggestions
     if (content.includes(': any')) {
       suggestions.push(
-        'Replace "any" type with specific TypeScript types for better type safety',
+        'Replace "any" type with specific TypeScript types for better type safety'
       );
     }
 
     // React suggestions
     if (patterns.includes('react-component') && !content.includes('React.FC')) {
       suggestions.push(
-        'Consider using React.FC type for better component typing',
+        'Consider using React.FC type for better component typing'
       );
     }
 
@@ -198,7 +229,7 @@ export class AIGuidanceEngine {
       !patterns.includes('error-handling')
     ) {
       suggestions.push(
-        'Add try-catch blocks to async functions for proper error handling',
+        'Add try-catch blocks to async functions for proper error handling'
       );
     }
 
@@ -211,7 +242,7 @@ export class AIGuidanceEngine {
     // Performance suggestions
     if (content.includes('map(') && !content.includes('key=')) {
       suggestions.push(
-        'Add unique "key" prop to mapped React elements for better performance',
+        'Add unique "key" prop to mapped React elements for better performance'
       );
     }
 
@@ -249,48 +280,61 @@ export class AIGuidanceEngine {
     let score = 100;
 
     // Deduct points for common issues
-    if (content.includes(': any')) score -= 20;
-    if (content.includes('console.log')) score -= 5;
-    if (content.includes('TODO') || content.includes('FIXME')) score -= 10;
-    if (content.includes('eslint-disable')) score -= 15;
+    if (content.includes(': any')) {
+      score -= 20;
+    }
+    if (content.includes('console.log')) {
+      score -= 5;
+    }
+    if (content.includes('TODO') || content.includes('FIXME')) {
+      score -= 10;
+    }
+    if (content.includes('eslint-disable')) {
+      score -= 15;
+    }
 
     // Add points for good practices
-    if (content.includes('interface ') || content.includes('type '))
+    if (content.includes('interface ') || content.includes('type ')) {
       score += 10;
-    if (content.includes('try') && content.includes('catch')) score += 15;
-    if (content.includes('test') || content.includes('spec')) score += 20;
+    }
+    if (content.includes('try') && content.includes('catch')) {
+      score += 15;
+    }
+    if (content.includes('test') || content.includes('spec')) {
+      score += 20;
+    }
 
     return Math.max(0, Math.min(100, score));
   }
 
   private async getCodeSuggestions(
     filePath: string,
-    content: string,
+    content: string
   ): Promise<string[]> {
     const suggestions = await this.storage.getCodeSuggestions(
       filePath,
-      content,
+      content
     );
     return suggestions.suggestedWorkflows.map(
-      (w) => `Consider using workflow: ${w.metadata.name || w.id}`,
+      (w) => `Consider using workflow: ${w.metadata.name || w.id}`
     );
   }
 
   private async findSimilarCode(
     filePath: string,
-    content: string,
+    content: string
   ): Promise<VectorSearchResult[]> {
     return await this.storage.findSimilarCode(filePath, content, 5);
   }
 
   private async findRelevantWorkflows(
-    content: string,
+    content: string
   ): Promise<VectorSearchResult[]> {
     return await this.storage.searchWorkflows(content, 5);
   }
 
   private async findRelevantTemplates(
-    content: string,
+    content: string
   ): Promise<VectorSearchResult[]> {
     return await this.storage.searchTemplates(content, undefined, 5);
   }
@@ -314,25 +358,25 @@ export class AIGuidanceEngine {
 
   private async generateRecommendations(
     analysis: CodeAnalysis,
-    patterns: string[],
+    patterns: string[]
   ): Promise<string[]> {
     const recommendations: string[] = [];
 
     if (analysis.analysis.complexity > 50) {
       recommendations.push(
-        'Consider breaking down this code into smaller, more manageable functions',
+        'Consider breaking down this code into smaller, more manageable functions'
       );
     }
 
     if (patterns.includes('any-type-usage')) {
       recommendations.push(
-        'Replace "any" types with specific TypeScript types for better type safety',
+        'Replace "any" types with specific TypeScript types for better type safety'
       );
     }
 
     if (analysis.analysis.qualityScore < 70) {
       recommendations.push(
-        'Focus on improving code quality by addressing the identified issues',
+        'Focus on improving code quality by addressing the identified issues'
       );
     }
 
@@ -348,7 +392,7 @@ export class AIGuidanceEngine {
       !patterns.includes('error-handling')
     ) {
       recommendations.push(
-        'Add comprehensive error handling to this API endpoint',
+        'Add comprehensive error handling to this API endpoint'
       );
     }
 
@@ -376,7 +420,7 @@ export class AIGuidanceEngine {
   async executeWorkflowWithAI(
     workflowId: string,
     context: GuidanceContext,
-    variables: Record<string, string> = {},
+    variables: Record<string, string> = {}
   ): Promise<{
     success: boolean;
     steps: Array<{
@@ -416,7 +460,7 @@ export class AIGuidanceEngine {
         const aiSuggestions = await this.generateStepSuggestions(
           step,
           context,
-          variables,
+          variables
         );
         results.push({
           step,
@@ -451,7 +495,7 @@ export class AIGuidanceEngine {
   private async executeStepWithAI(
     step: WorkflowStep,
     context: GuidanceContext,
-    variables: Record<string, string>,
+    variables: Record<string, string>
   ): Promise<{
     result: string;
     aiInsights?: string[];
@@ -461,7 +505,7 @@ export class AIGuidanceEngine {
     const aiInsights = await this.generateStepSuggestions(
       step,
       context,
-      variables,
+      variables
     );
 
     return { result, aiInsights };
@@ -470,7 +514,7 @@ export class AIGuidanceEngine {
   private async generateStepSuggestions(
     step: WorkflowStep,
     _context: GuidanceContext,
-    _variables: Record<string, string>,
+    _variables: Record<string, string>
   ): Promise<string[]> {
     const suggestions: string[] = [];
 
@@ -482,12 +526,12 @@ export class AIGuidanceEngine {
       case 'modify':
         suggestions.push('Review existing code patterns before making changes');
         suggestions.push(
-          'Ensure changes maintain consistency with the codebase',
+          'Ensure changes maintain consistency with the codebase'
         );
         break;
       case 'validate':
         suggestions.push(
-          'Run additional quality checks beyond the basic validation',
+          'Run additional quality checks beyond the basic validation'
         );
         break;
       case 'test':
