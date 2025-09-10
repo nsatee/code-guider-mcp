@@ -1,12 +1,12 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { Server } from '@modelcontextprotocol/sdk/server/index';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio';
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
   type TextContent,
   type Tool,
-} from '@modelcontextprotocol/sdk/types';
+} from '@modelcontextprotocol/sdk/types.js';
 import { AIGuidanceEngine } from './ai-guidance-engine';
 import { EnhancedWorkflowEngine } from './enhanced-workflow-engine';
 import { ExecutionTracker } from './execution-tracker';
