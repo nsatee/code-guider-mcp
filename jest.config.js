@@ -22,7 +22,7 @@ export default {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^bun:sqlite$': '<rootDir>/src/__mocks__/bun-sqlite.ts',
   },
 };

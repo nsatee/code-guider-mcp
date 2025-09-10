@@ -119,7 +119,7 @@ export class VectorStorage {
     }
 
     try {
-      const result = await this.embeddingModel(text, {
+      const result = await (this.embeddingModel as any)(text, {
         pooling: 'mean',
         normalize: true,
       });
@@ -208,14 +208,14 @@ export class VectorStorage {
     }
 
     return {
-      id: row.id as string,
-      name: row.name as string,
-      description: row.description as string,
-      steps: JSON.parse(row.metadata as string).steps || [],
-      qualityChecks: JSON.parse(row.metadata as string).qualityChecks || [],
-      tags: JSON.parse(row.metadata as string).tags || [],
-      createdAt: row.created_at as string,
-      updatedAt: row.updated_at as string,
+      id: row['id'] as string,
+      name: row['name'] as string,
+      description: row['description'] as string,
+      steps: JSON.parse(row['metadata'] as string).steps || [],
+      qualityChecks: JSON.parse(row['metadata'] as string).qualityChecks || [],
+      tags: JSON.parse(row['metadata'] as string).tags || [],
+      createdAt: row['created_at'] as string,
+      updatedAt: row['updated_at'] as string,
     };
   }
 
@@ -228,14 +228,14 @@ export class VectorStorage {
     const rows = stmt.all() as Record<string, unknown>[];
 
     const results = rows.map((row) => {
-      const embedding = JSON.parse(row.embedding as string);
+      const embedding = JSON.parse(row['embedding'] as string);
       const similarity = this.cosineSimilarity(queryEmbedding, embedding);
 
       return {
-        id: row.id as string,
-        content: row.content as string,
+        id: row['id'] as string,
+        content: row['content'] as string,
         similarity,
-        metadata: JSON.parse(row.metadata as string),
+        metadata: JSON.parse(row['metadata'] as string),
       };
     });
 
@@ -282,14 +282,14 @@ export class VectorStorage {
       : (stmt.all() as Record<string, unknown>[]);
 
     const results = rows.map((row: Record<string, unknown>) => {
-      const embedding = JSON.parse(row.embedding as string);
+      const embedding = JSON.parse(row['embedding'] as string);
       const similarity = this.cosineSimilarity(queryEmbedding, embedding);
 
       return {
-        id: row.id as string,
-        content: row.content as string,
+        id: row['id'] as string,
+        content: row['content'] as string,
         similarity,
-        metadata: JSON.parse(row.metadata as string),
+        metadata: JSON.parse(row['metadata'] as string),
       };
     });
 
@@ -330,16 +330,16 @@ export class VectorStorage {
     const rows = stmt.all(filePath) as Record<string, unknown>[];
 
     const results = rows.map((row) => {
-      const embedding = JSON.parse(row.embedding as string);
+      const embedding = JSON.parse(row['embedding'] as string);
       const similarity = this.cosineSimilarity(queryEmbedding, embedding);
 
       return {
-        id: row.id as string,
-        content: row.content as string,
+        id: row['id'] as string,
+        content: row['content'] as string,
         similarity,
         metadata: {
-          filePath: row.file_path as string,
-          analysis: JSON.parse(row.analysis as string),
+          filePath: row['file_path'] as string,
+          analysis: JSON.parse(row['analysis'] as string),
         },
       };
     });
@@ -404,14 +404,14 @@ export class VectorStorage {
     const rows = stmt.all() as Record<string, unknown>[];
 
     const results = rows.map((row) => {
-      const embedding = JSON.parse(row.embedding as string);
+      const embedding = JSON.parse(row['embedding'] as string);
       const similarity = this.cosineSimilarity(queryEmbedding, embedding);
 
       return {
-        id: row.id as string,
-        content: row.content as string,
+        id: row['id'] as string,
+        content: row['content'] as string,
         similarity,
-        metadata: JSON.parse(row.metadata as string),
+        metadata: JSON.parse(row['metadata'] as string),
       };
     });
 
@@ -434,7 +434,7 @@ export class VectorStorage {
     );
     const row = stmt.get('default') as Record<string, unknown> | undefined;
 
-    return row ? JSON.parse(row.config as string) : null;
+    return row ? JSON.parse(row['config'] as string) : null;
   }
 
   // Utility methods
@@ -445,14 +445,14 @@ export class VectorStorage {
     const rows = stmt.all() as Record<string, unknown>[];
 
     return rows.map((row) => ({
-      id: row.id as string,
-      name: row.name as string,
-      description: row.description as string,
-      steps: JSON.parse(row.metadata as string).steps || [],
-      qualityChecks: JSON.parse(row.metadata as string).qualityChecks || [],
-      tags: JSON.parse(row.metadata as string).tags || [],
-      createdAt: row.created_at as string,
-      updatedAt: row.updated_at as string,
+      id: row['id'] as string,
+      name: row['name'] as string,
+      description: row['description'] as string,
+      steps: JSON.parse(row['metadata'] as string).steps || [],
+      qualityChecks: JSON.parse(row['metadata'] as string).qualityChecks || [],
+      tags: JSON.parse(row['metadata'] as string).tags || [],
+      createdAt: row['created_at'] as string,
+      updatedAt: row['updated_at'] as string,
     }));
   }
 
@@ -463,19 +463,19 @@ export class VectorStorage {
     const rows = stmt.all() as Record<string, unknown>[];
 
     return rows.map((row) => ({
-      id: row.id as string,
-      name: row.name as string,
-      type: row.type as
+      id: row['id'] as string,
+      name: row['name'] as string,
+      type: row['type'] as
         | 'component'
         | 'function'
         | 'class'
         | 'interface'
         | 'test'
         | 'config',
-      content: row.content as string,
-      variables: JSON.parse(row.metadata as string).variables || [],
-      description: row.description as string,
-      tags: JSON.parse(row.metadata as string).tags || [],
+      content: row['content'] as string,
+      variables: JSON.parse(row['metadata'] as string).variables || [],
+      description: row['description'] as string,
+      tags: JSON.parse(row['metadata'] as string).tags || [],
     }));
   }
 
@@ -486,18 +486,18 @@ export class VectorStorage {
     const rows = stmt.all() as Record<string, unknown>[];
 
     return rows.map((row) => ({
-      id: row.id as string,
-      name: row.name as string,
-      description: row.description as string,
-      type: row.type as
+      id: row['id'] as string,
+      name: row['name'] as string,
+      description: row['description'] as string,
+      type: row['type'] as
         | 'lint'
         | 'test'
         | 'security'
         | 'performance'
         | 'accessibility',
-      severity: row.severity as 'error' | 'warning' | 'info',
-      pattern: JSON.parse(row.metadata as string).pattern,
-      check: row.description as string,
+      severity: row['severity'] as 'error' | 'warning' | 'info',
+      pattern: JSON.parse(row['metadata'] as string).pattern,
+      check: row['description'] as string,
     }));
   }
 
@@ -580,29 +580,29 @@ export class VectorStorage {
 
     return rows.map((row) => {
       const memory: Memory = {
-        id: row.id as string,
-        content: row.content as string,
-        type: row.type as MemoryType,
-        scope: row.scope as 'global' | 'project',
-        category: row.category as MemoryCategory,
-        tags: JSON.parse(row.tags as string),
-        projectId: row.projectId as string | undefined,
-        context: JSON.parse(row.context as string),
-        importance: row.importance as number,
-        createdAt: row.created_at as string,
-        updatedAt: row.updated_at as string,
-        lastAccessed: row.last_accessed as string,
-        accessCount: row.access_count as number,
+        id: row['id'] as string,
+        content: row['content'] as string,
+        type: row['type'] as MemoryType,
+        scope: row['scope'] as 'global' | 'project',
+        category: row['category'] as MemoryCategory,
+        tags: JSON.parse(row['tags'] as string),
+        projectId: row['projectId'] as string | undefined,
+        context: JSON.parse(row['context'] as string),
+        importance: row['importance'] as number,
+        createdAt: row['created_at'] as string,
+        updatedAt: row['updated_at'] as string,
+        lastAccessed: row['last_accessed'] as string,
+        accessCount: row['access_count'] as number,
       };
 
-      if (row.project_id) {
-        memory.projectId = row.project_id as string;
+      if (row['project_id']) {
+        memory.projectId = row['project_id'] as string;
       }
 
       return {
         memory,
-        relevance: row.similarity as number,
-        context: `Memory about ${row.type} in ${row.category} category`,
+        relevance: row['similarity'] as number,
+        context: `Memory about ${row['type']} in ${row['category']} category`,
       };
     });
   }

@@ -427,7 +427,7 @@ export class DrizzleStorage {
   ): Promise<Memory[]> {
     let query = this.db.select().from(memories);
 
-    const conditions: ReturnType<typeof eq>[] = [];
+    const conditions: any[] = [];
     if (type) {
       conditions.push(eq(memories.type, type));
     }
@@ -439,7 +439,7 @@ export class DrizzleStorage {
     }
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      query = query.where(and(...conditions)) as any;
     }
 
     const result = await query
@@ -604,7 +604,7 @@ export class DrizzleStorage {
     let query = this.db.select().from(memoryRules);
 
     if (scope) {
-      query = query.where(eq(memoryRules.scope, scope));
+      query = query.where(eq(memoryRules.scope, scope)) as any;
     }
 
     const result = await query.orderBy(desc(memoryRules.createdAt));
