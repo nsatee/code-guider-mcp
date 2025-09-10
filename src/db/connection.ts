@@ -1,8 +1,8 @@
 import { Database } from 'bun:sqlite';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import * as schema from './schema.js';
 
 const __filename = fileURLToPath(import.meta.url);

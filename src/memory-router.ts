@@ -1,13 +1,13 @@
-import {
+import type { HybridStorage } from './hybrid-storage.js';
+import type { ProjectManager } from './project-manager.js';
+import type {
   Memory,
-  MemoryType,
-  MemoryScope,
   MemoryCategory,
   MemoryRoutingDecision,
+  MemoryScope,
   MemorySearchResult,
+  MemoryType,
 } from './types.js';
-import { ProjectManager } from './project-manager.js';
-import { HybridStorage } from './hybrid-storage.js';
 
 /**
  * Intelligent Memory Router that decides whether to store memories
@@ -44,15 +44,15 @@ export class MemoryRouter {
     content: string,
     type: MemoryType,
     category: MemoryCategory,
-    context: Record<string, any> = {},
-    tags: string[] = []
+    context: Record<string, unknown> = {},
+    tags: string[] = [],
   ): Promise<MemoryRoutingDecision> {
     const decision = await this.analyzeMemoryRouting(
       content,
       type,
       category,
       context,
-      tags
+      tags,
     );
 
     // Store the memory in the appropriate location
@@ -86,8 +86,8 @@ export class MemoryRouter {
     content: string,
     type: MemoryType,
     category: MemoryCategory,
-    context: Record<string, any>,
-    tags: string[]
+    context: Record<string, unknown>,
+    tags: string[],
   ): Promise<MemoryRoutingDecision> {
     const factors: string[] = [];
     let globalScore = 0;
@@ -143,7 +143,7 @@ export class MemoryRouter {
       scope,
       factors,
       globalScore,
-      projectScore
+      projectScore,
     );
 
     return {
@@ -222,7 +222,7 @@ export class MemoryRouter {
     ];
 
     const globalMatches = globalIndicators.filter((indicator) =>
-      lowerContent.includes(indicator)
+      lowerContent.includes(indicator),
     ).length;
 
     if (globalMatches > 0) {
@@ -247,13 +247,13 @@ export class MemoryRouter {
     ];
 
     const projectMatches = projectIndicators.filter((indicator) =>
-      lowerContent.includes(indicator)
+      lowerContent.includes(indicator),
     ).length;
 
     if (projectMatches > 0) {
       projectScore += projectMatches * 0.5;
       factors.push(
-        `Content contains ${projectMatches} project-specific indicators`
+        `Content contains ${projectMatches} project-specific indicators`,
       );
     }
 
@@ -280,7 +280,7 @@ export class MemoryRouter {
   /**
    * Analyze context for routing hints
    */
-  private analyzeContext(context: Record<string, any>): {
+  private analyzeContext(context: Record<string, unknown>): {
     globalScore: number;
     projectScore: number;
     factors: string[];
@@ -409,7 +409,7 @@ export class MemoryRouter {
   private calculateImportance(
     content: string,
     type: MemoryType,
-    category: MemoryCategory
+    category: MemoryCategory,
   ): number {
     let importance = 5; // Base importance
 
@@ -452,7 +452,7 @@ export class MemoryRouter {
     scope: MemoryScope,
     factors: string[],
     globalScore: number,
-    projectScore: number
+    projectScore: number,
   ): string {
     const scoreDiff = Math.abs(globalScore - projectScore);
     const confidence =
@@ -486,7 +486,7 @@ export class MemoryRouter {
     scope?: MemoryScope,
     type?: MemoryType,
     category?: MemoryCategory,
-    limit: number = 10
+    limit: number = 10,
   ): Promise<MemorySearchResult[]> {
     const results: MemorySearchResult[] = [];
 
@@ -496,7 +496,7 @@ export class MemoryRouter {
         query,
         type,
         category,
-        limit
+        limit,
       );
       results.push(...globalResults);
     }
@@ -507,7 +507,7 @@ export class MemoryRouter {
         query,
         type,
         category,
-        limit
+        limit,
       );
       results.push(...projectResults);
     }
@@ -527,7 +527,7 @@ export class MemoryRouter {
    */
   public async getMemory(
     id: string,
-    scope?: MemoryScope
+    scope?: MemoryScope,
   ): Promise<Memory | null> {
     if (scope === 'global') {
       return await this.globalStorage.getMemory(id);
@@ -548,7 +548,7 @@ export class MemoryRouter {
    */
   public async updateMemoryAccess(
     id: string,
-    scope?: MemoryScope
+    scope?: MemoryScope,
   ): Promise<void> {
     const memory = await this.getMemory(id, scope);
     if (memory) {

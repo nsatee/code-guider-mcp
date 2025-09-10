@@ -1,13 +1,7 @@
-import {
-  Workflow,
-  WorkflowStep,
-  CodeTemplate,
-  QualityRule,
-  GuidanceContext,
-} from './types.js';
-import { StorageInterface } from './storage-interface.js';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import type { StorageInterface } from './storage-interface.js';
+import type { GuidanceContext, Workflow, WorkflowStep } from './types.js';
 
 export class GuidanceEngine {
   private storage: StorageInterface;
@@ -19,7 +13,7 @@ export class GuidanceEngine {
   async executeWorkflow(
     workflowId: string,
     context: GuidanceContext,
-    variables: Record<string, string> = {}
+    variables: Record<string, string> = {},
   ): Promise<{
     success: boolean;
     steps: Array<{ step: WorkflowStep; result: string; success: boolean }>;
@@ -65,7 +59,7 @@ export class GuidanceEngine {
   private async executeStep(
     step: WorkflowStep,
     context: GuidanceContext,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): Promise<string> {
     switch (step.action) {
       case 'create':
@@ -86,7 +80,7 @@ export class GuidanceEngine {
   private async createFile(
     step: WorkflowStep,
     context: GuidanceContext,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): Promise<string> {
     if (!step.template) {
       throw new Error('Template not specified for create action');
@@ -117,7 +111,7 @@ export class GuidanceEngine {
   private async modifyFile(
     step: WorkflowStep,
     context: GuidanceContext,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): Promise<string> {
     const filePath = join(context.projectPath, step.name);
     if (!existsSync(filePath)) {
@@ -128,7 +122,7 @@ export class GuidanceEngine {
     const modifiedContent = this.applyModifications(
       currentContent,
       step,
-      variables
+      variables,
     );
     writeFileSync(filePath, modifiedContent);
 
@@ -138,7 +132,7 @@ export class GuidanceEngine {
   private async validateCode(
     step: WorkflowStep,
     context: GuidanceContext,
-    variables: Record<string, string>
+    _variables: Record<string, string>,
   ): Promise<string> {
     const filePath = join(context.projectPath, step.name);
     if (!existsSync(filePath)) {
@@ -169,7 +163,7 @@ export class GuidanceEngine {
   private async createTest(
     step: WorkflowStep,
     context: GuidanceContext,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): Promise<string> {
     const testTemplate = await this.storage.getTemplate('test-template');
     if (!testTemplate) {
@@ -190,7 +184,7 @@ export class GuidanceEngine {
   private async createDocumentation(
     step: WorkflowStep,
     context: GuidanceContext,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): Promise<string> {
     const docTemplate = await this.storage.getTemplate('doc-template');
     if (!docTemplate) {
@@ -210,7 +204,7 @@ export class GuidanceEngine {
 
   private processTemplate(
     template: string,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): string {
     let processed = template;
 
@@ -226,7 +220,7 @@ export class GuidanceEngine {
   private applyModifications(
     content: string,
     step: WorkflowStep,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): string {
     // Simple modification logic - can be extended
     if (step.rules) {
@@ -242,15 +236,15 @@ export class GuidanceEngine {
   private applyModificationRule(
     content: string,
     rule: string,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): string {
     // Implement specific modification rules
     // This is a simplified example
     switch (rule) {
       case 'add-import':
-        return this.addImport(content, variables['import'] || '');
+        return this.addImport(content, variables.import || '');
       case 'add-export':
-        return this.addExport(content, variables['export'] || '');
+        return this.addExport(content, variables.export || '');
       default:
         return content;
     }
@@ -282,7 +276,7 @@ export class GuidanceEngine {
 
   async getGuidanceForFile(
     filePath: string,
-    context: GuidanceContext
+    _context: GuidanceContext,
   ): Promise<{
     suggestions: string[];
     qualityIssues: string[];
@@ -299,8 +293,8 @@ export class GuidanceEngine {
       workflow.tags.some(
         (tag) =>
           tag.toLowerCase().includes(extension || '') ||
-          tag.toLowerCase().includes('general')
-      )
+          tag.toLowerCase().includes('general'),
+      ),
     );
 
     // Check for quality issues

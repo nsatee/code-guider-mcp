@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
 import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { DatabaseConnection } from './db/connection.js';
 import { HybridStorage } from './hybrid-storage.js';
 import { MemoryRouter } from './memory-router.js';
@@ -76,22 +76,22 @@ export class ProjectManager {
     const pyProjectPath = join(resolvedPath, 'pyproject.toml');
     const requirementsPath = join(resolvedPath, 'requirements.txt');
     const tsConfigPath = join(resolvedPath, 'tsconfig.json');
-    const nextConfigPath = join(resolvedPath, 'next.config.js');
-    const vueConfigPath = join(resolvedPath, 'vue.config.js');
-    const angularJsonPath = join(resolvedPath, 'angular.json');
-    const viteConfigPath = join(resolvedPath, 'vite.config.js');
-    const webpackConfigPath = join(resolvedPath, 'webpack.config.js');
+    const _nextConfigPath = join(resolvedPath, 'next.config.js');
+    const _vueConfigPath = join(resolvedPath, 'vue.config.js');
+    const _angularJsonPath = join(resolvedPath, 'angular.json');
+    const _viteConfigPath = join(resolvedPath, 'vite.config.js');
+    const _webpackConfigPath = join(resolvedPath, 'webpack.config.js');
     const tailwindConfigPath = join(resolvedPath, 'tailwind.config.js');
     const prismaSchemaPath = join(resolvedPath, 'prisma', 'schema.prisma');
     const dockerfilePath = join(resolvedPath, 'Dockerfile');
     const dockerComposePath = join(resolvedPath, 'docker-compose.yml');
 
     let projectType: ProjectInfo['type'] = 'other';
-    let frameworks: string[] = [];
-    let languages: string[] = [];
-    let tools: string[] = [];
-    let databases: string[] = [];
-    let deployment: string[] = [];
+    const frameworks: string[] = [];
+    const languages: string[] = [];
+    const tools: string[] = [];
+    const databases: string[] = [];
+    const deployment: string[] = [];
 
     // Detect based on files
     if (existsSync(packageJsonPath)) {
@@ -103,11 +103,11 @@ export class ProjectManager {
         };
 
         // Detect frontend frameworks
-        if (dependencies['react']) {
+        if (dependencies.react) {
           projectType = 'react';
           frameworks.push('react');
         }
-        if (dependencies['vue']) {
+        if (dependencies.vue) {
           projectType = 'vue';
           frameworks.push('vue');
         }
@@ -115,13 +115,13 @@ export class ProjectManager {
           projectType = 'angular';
           frameworks.push('angular');
         }
-        if (dependencies['next']) {
+        if (dependencies.next) {
           frameworks.push('next');
         }
-        if (dependencies['nuxt']) {
+        if (dependencies.nuxt) {
           frameworks.push('nuxt');
         }
-        if (dependencies['svelte']) {
+        if (dependencies.svelte) {
           frameworks.push('svelte');
         }
         if (dependencies['solid-js']) {
@@ -129,16 +129,16 @@ export class ProjectManager {
         }
 
         // Detect backend frameworks
-        if (dependencies['express']) {
+        if (dependencies.express) {
           frameworks.push('express');
         }
-        if (dependencies['fastify']) {
+        if (dependencies.fastify) {
           frameworks.push('fastify');
         }
-        if (dependencies['koa']) {
+        if (dependencies.koa) {
           frameworks.push('koa');
         }
-        if (dependencies['nest']) {
+        if (dependencies.nest) {
           frameworks.push('nestjs');
         }
         if (dependencies['@nestjs/core']) {
@@ -146,24 +146,24 @@ export class ProjectManager {
         }
 
         // Detect build tools
-        if (dependencies['vite']) {
+        if (dependencies.vite) {
           tools.push('vite');
         }
-        if (dependencies['webpack']) {
+        if (dependencies.webpack) {
           tools.push('webpack');
         }
-        if (dependencies['rollup']) {
+        if (dependencies.rollup) {
           tools.push('rollup');
         }
-        if (dependencies['esbuild']) {
+        if (dependencies.esbuild) {
           tools.push('esbuild');
         }
-        if (dependencies['parcel']) {
+        if (dependencies.parcel) {
           tools.push('parcel');
         }
 
         // Detect CSS frameworks
-        if (dependencies['tailwindcss']) {
+        if (dependencies.tailwindcss) {
           tools.push('tailwindcss');
         }
         if (dependencies['@emotion/react']) {
@@ -180,53 +180,53 @@ export class ProjectManager {
         }
 
         // Detect state management
-        if (dependencies['redux']) {
+        if (dependencies.redux) {
           tools.push('redux');
         }
         if (dependencies['@reduxjs/toolkit']) {
           tools.push('redux-toolkit');
         }
-        if (dependencies['zustand']) {
+        if (dependencies.zustand) {
           tools.push('zustand');
         }
-        if (dependencies['jotai']) {
+        if (dependencies.jotai) {
           tools.push('jotai');
         }
-        if (dependencies['recoil']) {
+        if (dependencies.recoil) {
           tools.push('recoil');
         }
 
         // Detect testing frameworks
-        if (dependencies['jest']) {
+        if (dependencies.jest) {
           tools.push('jest');
         }
-        if (dependencies['vitest']) {
+        if (dependencies.vitest) {
           tools.push('vitest');
         }
         if (dependencies['@testing-library/react']) {
           tools.push('testing-library');
         }
-        if (dependencies['cypress']) {
+        if (dependencies.cypress) {
           tools.push('cypress');
         }
-        if (dependencies['playwright']) {
+        if (dependencies.playwright) {
           tools.push('playwright');
         }
 
         // Detect databases
-        if (dependencies['prisma']) {
+        if (dependencies.prisma) {
           databases.push('prisma');
         }
-        if (dependencies['mongoose']) {
+        if (dependencies.mongoose) {
           databases.push('mongodb');
         }
         if (dependencies['@prisma/client']) {
           databases.push('prisma');
         }
-        if (dependencies['typeorm']) {
+        if (dependencies.typeorm) {
           databases.push('typeorm');
         }
-        if (dependencies['sequelize']) {
+        if (dependencies.sequelize) {
           databases.push('sequelize');
         }
         if (dependencies['drizzle-orm']) {
@@ -237,7 +237,7 @@ export class ProjectManager {
         if (dependencies['@trpc/server']) {
           tools.push('trpc');
         }
-        if (dependencies['graphql']) {
+        if (dependencies.graphql) {
           tools.push('graphql');
         }
         if (dependencies['apollo-server']) {
@@ -245,7 +245,7 @@ export class ProjectManager {
         }
 
         // Detect languages
-        if (dependencies['typescript'] || existsSync(tsConfigPath)) {
+        if (dependencies.typescript || existsSync(tsConfigPath)) {
           languages.push('typescript');
         }
         if (dependencies['@babel/core']) {
@@ -253,10 +253,10 @@ export class ProjectManager {
         }
 
         // Detect deployment
-        if (dependencies['vercel']) {
+        if (dependencies.vercel) {
           deployment.push('vercel');
         }
-        if (dependencies['netlify']) {
+        if (dependencies.netlify) {
           deployment.push('netlify');
         }
         if (dependencies['@aws-sdk/client-s3']) {
@@ -336,10 +336,10 @@ export class ProjectManager {
 
     // Create local database
     const localDbPath = join(projectPath, '.guidance', 'guidance.db');
-    const dbConnection = new DatabaseConnection(localDbPath);
+    const _dbConnection = new DatabaseConnection(localDbPath);
 
     // Initialize local storage
-    const localStorage = new HybridStorage(localDbPath);
+    const _localStorage = new HybridStorage(localDbPath);
 
     // Save project info
     await this.saveProjectInfo(projectInfo);
@@ -394,7 +394,7 @@ export class ProjectManager {
    * Get project info by path
    */
   public async getProjectInfo(
-    projectPath: string
+    projectPath: string,
   ): Promise<ProjectInfo | null> {
     const projects = await this.listProjects();
     const resolvedPath = resolve(projectPath);
@@ -449,26 +449,32 @@ export class ProjectManager {
   /**
    * Check if template is applicable to project
    */
-  private isTemplateApplicable(template: any, project: ProjectInfo): boolean {
+  private isTemplateApplicable(
+    template: Record<string, unknown>,
+    project: ProjectInfo,
+  ): boolean {
     const templateTags = template.tags || [];
     return templateTags.some(
       (tag: string) =>
         project.frameworks.includes(tag) ||
         project.languages.includes(tag) ||
-        project.type === tag
+        project.type === tag,
     );
   }
 
   /**
    * Check if workflow is applicable to project
    */
-  private isWorkflowApplicable(workflow: any, project: ProjectInfo): boolean {
+  private isWorkflowApplicable(
+    workflow: Record<string, unknown>,
+    project: ProjectInfo,
+  ): boolean {
     const workflowTags = workflow.tags || [];
     return workflowTags.some(
       (tag: string) =>
         project.frameworks.includes(tag) ||
         project.languages.includes(tag) ||
-        project.type === tag
+        project.type === tag,
     );
   }
 
@@ -542,7 +548,7 @@ export class ProjectManager {
    * Initialize memory rules for a project
    */
   private async initializeProjectMemoryRules(
-    projectInfo: ProjectInfo
+    projectInfo: ProjectInfo,
   ): Promise<void> {
     try {
       const globalStorage = this.getGlobalStorage();
@@ -557,7 +563,7 @@ export class ProjectManager {
       // Initialize project-specific memory rules
       await memoryRuleManager.initializeProjectRules(
         projectInfo.path,
-        projectInfo.type
+        projectInfo.type,
       );
 
       // Save the rules to both global and project storage

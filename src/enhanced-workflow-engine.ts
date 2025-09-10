@@ -1,17 +1,17 @@
-import { StorageInterface } from './storage-interface.js';
-import { RoleManager } from './role-manager.js';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ExecutionTracker } from './execution-tracker.js';
-import {
-  Workflow,
-  WorkflowStep,
-  WorkflowExecution,
-  StepExecution,
+import { RoleManager } from './role-manager.js';
+import type { StorageInterface } from './storage-interface.js';
+import type {
   GuidanceContext,
-  WorkflowRole,
   QualityCheckResult,
+  StepExecution,
+  Workflow,
+  WorkflowExecution,
+  WorkflowRole,
+  WorkflowStep,
 } from './types.js';
-import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'path';
 
 export interface EnhancedWorkflowResult {
   success: boolean;
@@ -25,7 +25,7 @@ export interface EnhancedWorkflowResult {
   }>;
   currentStep?: WorkflowStep;
   nextRole?: string;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   metrics: {
     filesCreated: number;
     filesModified: number;
@@ -52,7 +52,7 @@ export class EnhancedWorkflowEngine {
     workflowId: string,
     context: GuidanceContext,
     variables: Record<string, string> = {},
-    agentType: string = 'general'
+    agentType: string = 'general',
   ): Promise<EnhancedWorkflowResult> {
     // Get workflow
     const workflow = await this.storage.getWorkflow(workflowId);
@@ -80,7 +80,7 @@ export class EnhancedWorkflowEngine {
     const execution = await this.executionTracker.createExecution(
       workflowId,
       initialRole,
-      { ...context, ...variables, agentType }
+      { ...context, ...variables, agentType },
     );
 
     try {
@@ -89,14 +89,14 @@ export class EnhancedWorkflowEngine {
         execution,
         workflow,
         context,
-        variables
+        variables,
       );
       return result;
     } catch (error) {
       await this.executionTracker.failExecution(
         execution.id,
         `Workflow execution failed: ${error}`,
-        error as Error
+        error as Error,
       );
 
       return {
@@ -112,7 +112,7 @@ export class EnhancedWorkflowEngine {
     }
   }
 
-  private determineInitialRole(workflow: Workflow, agentType: string): string {
+  private determineInitialRole(_workflow: Workflow, agentType: string): string {
     // Get agent capabilities
     const agentCapabilities = this.roleManager.getAgentCapabilities(agentType);
 
@@ -129,7 +129,7 @@ export class EnhancedWorkflowEngine {
     execution: WorkflowExecution,
     workflow: Workflow,
     context: GuidanceContext,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): Promise<EnhancedWorkflowResult> {
     const results: Array<{
       step: WorkflowStep;
@@ -156,7 +156,7 @@ export class EnhancedWorkflowEngine {
           execution.id,
           step.id,
           currentRole.id,
-          { ...execution.context, ...variables }
+          { ...execution.context, ...variables },
         );
 
         // Execute step with role-specific guidance
@@ -165,7 +165,7 @@ export class EnhancedWorkflowEngine {
           currentRole,
           context,
           variables,
-          stepExecution
+          stepExecution,
         );
 
         // Update step execution
@@ -178,14 +178,14 @@ export class EnhancedWorkflowEngine {
         });
 
         // Update execution metrics
-        const updatedExecution = await this.executionTracker.updateExecution(
+        const _updatedExecution = await this.executionTracker.updateExecution(
           execution.id,
           {
             metrics: {
               ...execution.metrics,
               ...stepResult.metrics,
             },
-          }
+          },
         );
 
         results.push({
@@ -208,7 +208,7 @@ export class EnhancedWorkflowEngine {
           const transitionResult = await this.handleRoleTransition(
             execution.id,
             stepResult.roleTransition,
-            stepResult.handoffNotes || ''
+            stepResult.handoffNotes || '',
           );
 
           if (transitionResult) {
@@ -236,7 +236,7 @@ export class EnhancedWorkflowEngine {
     if (nextRoles.length === 0) {
       await this.executionTracker.completeExecution(
         execution.id,
-        execution.metrics
+        execution.metrics,
       );
     }
 
@@ -255,13 +255,13 @@ export class EnhancedWorkflowEngine {
 
   private getStepsForRole(
     workflow: Workflow,
-    role: WorkflowRole
+    role: WorkflowRole,
   ): WorkflowStep[] {
     // Filter steps based on role capabilities
     return workflow.steps.filter((step) => {
       // Check if step action matches role capabilities
       return role.capabilities.some((capability) =>
-        this.mapActionToCapability(step.action).includes(capability)
+        this.mapActionToCapability(step.action).includes(capability),
       );
     });
   }
@@ -283,11 +283,11 @@ export class EnhancedWorkflowEngine {
     role: WorkflowRole,
     context: GuidanceContext,
     variables: Record<string, string>,
-    stepExecution: StepExecution
+    _stepExecution: StepExecution,
   ): Promise<{
     success: boolean;
     result: string;
-    metrics: Record<string, any>;
+    metrics: Record<string, unknown>;
     aiSuggestions: string[];
     qualityChecks: QualityCheckResult[];
     aiInsights?: string[];
@@ -296,7 +296,7 @@ export class EnhancedWorkflowEngine {
   }> {
     const aiSuggestions: string[] = [];
     const qualityChecks: QualityCheckResult[] = [];
-    const metrics: Record<string, any> = {};
+    const metrics: Record<string, unknown> = {};
 
     try {
       // Get role-specific guidance
@@ -305,7 +305,7 @@ export class EnhancedWorkflowEngine {
 
       // Execute step based on action
       let result: string;
-      let success = true;
+      const success = true;
 
       switch (step.action) {
         case 'create':
@@ -313,25 +313,25 @@ export class EnhancedWorkflowEngine {
             step,
             role,
             context,
-            variables
+            variables,
           );
-          metrics['filesCreated'] = (metrics['filesCreated'] || 0) + 1;
+          metrics.filesCreated = (metrics.filesCreated || 0) + 1;
           break;
         case 'modify':
           result = await this.modifyFileWithRole(
             step,
             role,
             context,
-            variables
+            variables,
           );
-          metrics['filesModified'] = (metrics['filesModified'] || 0) + 1;
+          metrics.filesModified = (metrics.filesModified || 0) + 1;
           break;
         case 'validate':
           result = await this.validateCodeWithRole(
             step,
             role,
             context,
-            variables
+            variables,
           );
           break;
         case 'test':
@@ -339,16 +339,16 @@ export class EnhancedWorkflowEngine {
             step,
             role,
             context,
-            variables
+            variables,
           );
-          metrics['testsWritten'] = (metrics['testsWritten'] || 0) + 1;
+          metrics.testsWritten = (metrics.testsWritten || 0) + 1;
           break;
         case 'document':
           result = await this.createDocumentationWithRole(
             step,
             role,
             context,
-            variables
+            variables,
           );
           break;
         default:
@@ -364,14 +364,14 @@ export class EnhancedWorkflowEngine {
         step,
         role,
         context,
-        result
+        result,
       );
 
       // Check if role transition is needed
       const roleTransition = this.determineRoleTransition(
         step,
         role,
-        qualityResults
+        qualityResults,
       );
 
       return {
@@ -400,7 +400,7 @@ export class EnhancedWorkflowEngine {
     step: WorkflowStep,
     role: WorkflowRole,
     context: GuidanceContext,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): Promise<string> {
     // Role-specific file creation logic
     const template = await this.storage.getTemplate(step.template || '');
@@ -416,7 +416,7 @@ export class EnhancedWorkflowEngine {
     const filePath = join(context.projectPath, step.name);
 
     // Ensure directory exists
-    const dir = require('path').dirname(filePath);
+    const dir = require('node:path').dirname(filePath);
     if (!existsSync(dir)) {
       require('node:fs').mkdirSync(dir, { recursive: true });
     }
@@ -429,7 +429,7 @@ export class EnhancedWorkflowEngine {
     step: WorkflowStep,
     role: WorkflowRole,
     context: GuidanceContext,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): Promise<string> {
     const filePath = join(context.projectPath, step.name);
     if (!existsSync(filePath)) {
@@ -441,7 +441,7 @@ export class EnhancedWorkflowEngine {
       currentContent,
       step,
       role,
-      variables
+      variables,
     );
     require('node:fs').writeFileSync(filePath, modifiedContent);
 
@@ -452,7 +452,7 @@ export class EnhancedWorkflowEngine {
     step: WorkflowStep,
     role: WorkflowRole,
     context: GuidanceContext,
-    variables: Record<string, string>
+    _variables: Record<string, string>,
   ): Promise<string> {
     const filePath = join(context.projectPath, step.name);
     if (!existsSync(filePath)) {
@@ -484,7 +484,7 @@ export class EnhancedWorkflowEngine {
     step: WorkflowStep,
     role: WorkflowRole,
     context: GuidanceContext,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): Promise<string> {
     const testTemplate = await this.storage.getTemplate('test-template');
     if (!testTemplate) {
@@ -506,7 +506,7 @@ export class EnhancedWorkflowEngine {
     step: WorkflowStep,
     role: WorkflowRole,
     context: GuidanceContext,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): Promise<string> {
     const docTemplate = await this.storage.getTemplate('doc-template');
     if (!docTemplate) {
@@ -527,7 +527,7 @@ export class EnhancedWorkflowEngine {
   private processTemplateWithRole(
     template: string,
     role: WorkflowRole,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): string {
     let processed = template;
 
@@ -542,7 +542,7 @@ export class EnhancedWorkflowEngine {
     processed = processed.replace(/\{\{roleDescription\}\}/g, role.description);
     processed = processed.replace(
       /\{\{capabilities\}\}/g,
-      role.capabilities.join(', ')
+      role.capabilities.join(', '),
     );
 
     return processed;
@@ -550,9 +550,9 @@ export class EnhancedWorkflowEngine {
 
   private applyRoleBasedModifications(
     content: string,
-    step: WorkflowStep,
+    _step: WorkflowStep,
     role: WorkflowRole,
-    variables: Record<string, string>
+    _variables: Record<string, string>,
   ): string {
     // Apply role-specific modifications
     let modified = content;
@@ -591,9 +591,9 @@ export class EnhancedWorkflowEngine {
   }
 
   private async runQualityChecks(
-    step: WorkflowStep,
-    role: WorkflowRole,
-    context: GuidanceContext
+    _step: WorkflowStep,
+    _role: WorkflowRole,
+    _context: GuidanceContext,
   ): Promise<QualityCheckResult[]> {
     const results: QualityCheckResult[] = [];
     const qualityRules = await this.storage.listQualityRules();
@@ -616,8 +616,8 @@ export class EnhancedWorkflowEngine {
   private async generateAIInsights(
     step: WorkflowStep,
     role: WorkflowRole,
-    context: GuidanceContext,
-    result: string
+    _context: GuidanceContext,
+    _result: string,
   ): Promise<string[]> {
     const insights: string[] = [];
 
@@ -629,13 +629,13 @@ export class EnhancedWorkflowEngine {
   }
 
   private determineRoleTransition(
-    step: WorkflowStep,
+    _step: WorkflowStep,
     role: WorkflowRole,
-    qualityChecks: QualityCheckResult[]
+    qualityChecks: QualityCheckResult[],
   ): string | undefined {
     // Check if all quality gates are met for role transition
     const allQualityChecksPass = qualityChecks.every(
-      (check) => check.status === 'pass'
+      (check) => check.status === 'pass',
     );
 
     if (allQualityChecksPass && role.nextRoles.length > 0) {
@@ -647,13 +647,13 @@ export class EnhancedWorkflowEngine {
 
   private generateHandoffNotes(
     role: WorkflowRole,
-    qualityChecks: QualityCheckResult[]
+    qualityChecks: QualityCheckResult[],
   ): string {
     const notes: string[] = [];
 
     notes.push(`Handoff from ${role.displayName}`);
     notes.push(
-      `Quality checks: ${qualityChecks.filter((c) => c.status === 'pass').length}/${qualityChecks.length} passed`
+      `Quality checks: ${qualityChecks.filter((c) => c.status === 'pass').length}/${qualityChecks.length} passed`,
     );
     notes.push(`Next role should focus on: ${role.nextRoles.join(', ')}`);
 
@@ -663,12 +663,12 @@ export class EnhancedWorkflowEngine {
   private async handleRoleTransition(
     executionId: string,
     toRoleId: string,
-    handoffNotes: string
+    handoffNotes: string,
   ): Promise<WorkflowExecution | null> {
     return this.executionTracker.transitionRole(
       executionId,
       toRoleId,
-      handoffNotes
+      handoffNotes,
     );
   }
 }

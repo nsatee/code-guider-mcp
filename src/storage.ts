@@ -1,13 +1,18 @@
 import {
-  readFileSync,
-  writeFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
+  writeFileSync,
 } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join } from 'node:path';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { Workflow, CodeTemplate, QualityRule, ProjectConfig } from './types.js';
+import type {
+  CodeTemplate,
+  ProjectConfig,
+  QualityRule,
+  Workflow,
+} from './types.js';
 
 export class LocalStorage {
   private basePath: string;
@@ -48,7 +53,7 @@ export class LocalStorage {
     }
 
     const files = readdirSync(workflowsDir).filter((f: string) =>
-      f.endsWith('.json')
+      f.endsWith('.json'),
     );
     const workflows: Workflow[] = [];
 
@@ -94,7 +99,7 @@ export class LocalStorage {
     }
 
     const files = readdirSync(templatesDir).filter((f: string) =>
-      f.endsWith('.yaml')
+      f.endsWith('.yaml'),
     );
     const templates: CodeTemplate[] = [];
 
@@ -133,7 +138,7 @@ export class LocalStorage {
     }
 
     const files = readdirSync(rulesDir).filter((f: string) =>
-      f.endsWith('.json')
+      f.endsWith('.json'),
     );
     const rules: QualityRule[] = [];
 
@@ -173,8 +178,8 @@ export class LocalStorage {
         workflow.name.toLowerCase().includes(query.toLowerCase()) ||
         workflow.description.toLowerCase().includes(query.toLowerCase()) ||
         workflow.tags.some((tag) =>
-          tag.toLowerCase().includes(query.toLowerCase())
-        )
+          tag.toLowerCase().includes(query.toLowerCase()),
+        ),
     );
   }
 
@@ -185,8 +190,8 @@ export class LocalStorage {
         template.name.toLowerCase().includes(query.toLowerCase()) ||
         template.description.toLowerCase().includes(query.toLowerCase()) ||
         template.tags.some((tag) =>
-          tag.toLowerCase().includes(query.toLowerCase())
-        )
+          tag.toLowerCase().includes(query.toLowerCase()),
+        ),
     );
   }
 }

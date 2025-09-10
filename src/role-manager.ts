@@ -1,8 +1,8 @@
-import {
-  WorkflowRole,
-  WorkflowExecution,
-  RoleTransition,
+import type {
   AgentCapabilities,
+  RoleTransition,
+  WorkflowExecution,
+  WorkflowRole,
 } from './types.js';
 
 export class RoleManager {
@@ -285,7 +285,7 @@ export class RoleManager {
 
   getRoleGuidance(
     roleId: string,
-    context: Record<string, any>
+    context: Record<string, unknown>,
   ): {
     role: WorkflowRole;
     guidance: string[];
@@ -311,7 +311,7 @@ export class RoleManager {
 
   private generateRoleGuidance(
     role: WorkflowRole,
-    context: Record<string, any>
+    _context: Record<string, unknown>,
   ): string[] {
     const guidance: string[] = [];
 
@@ -321,7 +321,7 @@ export class RoleManager {
           'Focus on business value and user requirements',
           'Ensure clear communication with stakeholders',
           'Define measurable success criteria',
-          'Prioritize features based on impact'
+          'Prioritize features based on impact',
         );
         break;
       case 'architect':
@@ -329,7 +329,7 @@ export class RoleManager {
           'Design for scalability and maintainability',
           'Consider security implications early',
           'Plan for future extensibility',
-          'Document architectural decisions'
+          'Document architectural decisions',
         );
         break;
       case 'senior-developer':
@@ -337,7 +337,7 @@ export class RoleManager {
           'Write clean, self-documenting code',
           'Follow SOLID principles',
           'Write comprehensive tests',
-          'Optimize for performance'
+          'Optimize for performance',
         );
         break;
       case 'code-review':
@@ -345,7 +345,7 @@ export class RoleManager {
           'Check for security vulnerabilities',
           'Validate code quality and standards',
           'Ensure proper error handling',
-          'Verify test coverage'
+          'Verify test coverage',
         );
         break;
       case 'integration-engineer':
@@ -353,7 +353,7 @@ export class RoleManager {
           'Ensure smooth deployment process',
           'Set up proper monitoring',
           'Validate integration points',
-          'Prepare rollback procedures'
+          'Prepare rollback procedures',
         );
         break;
     }
@@ -363,7 +363,7 @@ export class RoleManager {
 
   private generateNextSteps(
     role: WorkflowRole,
-    context: Record<string, any>
+    _context: Record<string, unknown>,
   ): string[] {
     const nextSteps: string[] = [];
 
@@ -372,35 +372,35 @@ export class RoleManager {
         nextSteps.push(
           'Gather detailed requirements',
           'Create user stories',
-          'Define acceptance criteria'
+          'Define acceptance criteria',
         );
         break;
       case 'architect':
         nextSteps.push(
           'Create system diagram',
           'Select technology stack',
-          'Define API contracts'
+          'Define API contracts',
         );
         break;
       case 'senior-developer':
         nextSteps.push(
           'Implement core features',
           'Write unit tests',
-          'Create integration tests'
+          'Create integration tests',
         );
         break;
       case 'code-review':
         nextSteps.push(
           'Review code quality',
           'Check security issues',
-          'Validate performance'
+          'Validate performance',
         );
         break;
       case 'integration-engineer':
         nextSteps.push(
           'Deploy to staging',
           'Run integration tests',
-          'Monitor system health'
+          'Monitor system health',
         );
         break;
     }
@@ -411,8 +411,8 @@ export class RoleManager {
   createRoleTransition(
     fromRoleId: string,
     toRoleId: string,
-    context: Record<string, any>,
-    handoffNotes: string
+    context: Record<string, unknown>,
+    handoffNotes: string,
   ): RoleTransition {
     return {
       fromRole: fromRoleId,
@@ -425,7 +425,7 @@ export class RoleManager {
 
   validateRoleTransition(
     execution: WorkflowExecution,
-    toRoleId: string
+    toRoleId: string,
   ): {
     valid: boolean;
     reason?: string;
@@ -448,7 +448,7 @@ export class RoleManager {
 
     // Check if quality gates are met
     const unmetGates = currentRole.qualityGates.filter(
-      (gate) => !execution.context['qualityGates']?.includes(gate)
+      (gate) => !execution.context.qualityGates?.includes(gate),
     );
 
     if (unmetGates.length > 0) {

@@ -1,12 +1,12 @@
+import { mkdir, writeFile } from 'node:fs/promises';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  TextContent,
-  Tool,
+  type TextContent,
+  type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import { mkdir, writeFile } from 'node:fs/promises';
 import { AIGuidanceEngine } from './ai-guidance-engine.js';
 import { EnhancedWorkflowEngine } from './enhanced-workflow-engine.js';
 import { ExecutionTracker } from './execution-tracker.js';
@@ -14,8 +14,8 @@ import { MemoryRouter } from './memory-router.js';
 import { MemoryRuleManager } from './memory-rule-manager.js';
 import { ProjectManager } from './project-manager.js';
 import { RoleManager } from './role-manager.js';
-import { StorageInterface } from './storage-interface.js';
-import {
+import type { StorageInterface } from './storage-interface.js';
+import type {
   AgentRequestContext,
   CodeTemplate,
   GuidanceContext,
@@ -50,12 +50,16 @@ export class CodeGuidanceMCPServer {
 
     // Initialize storage based on context
     if (this.globalMode) {
-      this.storage = this.projectManager.getGlobalStorage();
+      this.storage = this.projectManager.getGlobalStorage() as StorageInterface;
     } else if (this.projectPath) {
-      this.storage = this.projectManager.getProjectStorage(this.projectPath);
+      this.storage = this.projectManager.getProjectStorage(
+        this.projectPath,
+      ) as StorageInterface;
     } else {
       // Fallback to current directory
-      this.storage = this.projectManager.getProjectStorage(process.cwd());
+      this.storage = this.projectManager.getProjectStorage(
+        process.cwd(),
+      ) as StorageInterface;
     }
 
     this.guidanceEngine = new AIGuidanceEngine(this.storage);
@@ -64,11 +68,11 @@ export class CodeGuidanceMCPServer {
     this.executionTracker = new ExecutionTracker(this.storage);
     this.memoryRouter = new MemoryRouter(
       this.projectManager,
-      this.projectManager.getGlobalStorage()
+      this.projectManager.getGlobalStorage(),
     );
     this.memoryRuleManager = new MemoryRuleManager(
       this.memoryRouter,
-      this.projectManager
+      this.projectManager,
     );
 
     // Set project context for memory router
@@ -544,31 +548,31 @@ export class CodeGuidanceMCPServer {
       try {
         switch (name) {
           case 'manage_workflows':
-            return await this.handleManageWorkflows(args);
+            return await this.handleManageWorkflows(args || {});
           case 'manage_templates':
-            return await this.handleManageTemplates(args);
+            return await this.handleManageTemplates(args || {});
           case 'analyze_code':
-            return await this.handleAnalyzeCode(args);
+            return await this.handleAnalyzeCode(args || {});
           case 'manage_quality_rules':
-            return await this.handleManageQualityRules(args);
+            return await this.handleManageQualityRules(args || {});
           case 'semantic_search':
-            return await this.handleSemanticSearch(args);
+            return await this.handleSemanticSearch(args || {});
           case 'manage_execution':
-            return await this.handleManageExecution(args);
+            return await this.handleManageExecution(args || {});
           case 'manage_roles':
-            return await this.handleManageRoles(args);
+            return await this.handleManageRoles(args || {});
           case 'ai_migrate':
-            return await this.handleAIMigrate(args);
+            return await this.handleAIMigrate(args || {});
           case 'manage_projects':
-            return await this.handleManageProjects(args);
+            return await this.handleManageProjects(args || {});
           case 'manage_memories':
-            return await this.handleManageMemories(args);
+            return await this.handleManageMemories(args || {});
           case 'manage_memory_rules':
-            return await this.handleManageMemoryRules(args);
+            return await this.handleManageMemoryRules(args || {});
           case 'get_execution_metrics':
-            return await this.handleGetExecutionMetrics(args);
+            return await this.handleGetExecutionMetrics(args || {});
           case 'transition_role':
-            return await this.handleTransitionRole(args);
+            return await this.handleTransitionRole(args || {});
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -587,10 +591,10 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleListWorkflows(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
-    const workflows = args.search
-      ? await this.storage.searchWorkflows(args.search)
+    const workflows = args['search']
+      ? await this.storage.searchWorkflows(args['search'] as string)
       : await this.storage.listWorkflows();
 
     const workflowList = workflows
@@ -614,15 +618,15 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleGetWorkflow(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
-    const workflow = await this.storage.getWorkflow(args.workflowId);
+    const workflow = await this.storage.getWorkflow(args['workflowId'] as string);
     if (!workflow) {
       return {
         content: [
           {
             type: 'text',
-            text: `Workflow ${args.workflowId} not found`,
+            text: `Workflow ${args['workflowId']} not found`,
           } as TextContent,
         ],
       };
@@ -630,7 +634,7 @@ export class CodeGuidanceMCPServer {
 
     const steps = workflow.steps
       .map(
-        (s) => `${s.order}. **${s.name}** (${s.action})\n   ${s.description}`
+        (s) => `${s.order}. **${s.name}** (${s.action})\n   ${s.description}`,
       )
       .join('\n');
 
@@ -649,9 +653,9 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleCreateWorkflow(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
-    const workflow = args.workflow as Workflow;
+    const workflow = args['workflow'] as Workflow;
     await this.storage.saveWorkflow(workflow);
 
     return {
@@ -665,19 +669,20 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleExecuteWorkflow(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const context: GuidanceContext = {
-      projectPath: args.projectPath,
-      projectType: args.projectType || 'general',
-      frameworks: args.frameworks || [],
-      qualityLevel: args.qualityLevel || 'moderate',
+      projectPath: args['projectPath'] as string,
+      projectType: (args['projectType'] as string) || 'general',
+      frameworks: (args['frameworks'] as string[]) || [],
+      qualityLevel:
+        (args['qualityLevel'] as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
     const result = await this.guidanceEngine.executeWorkflowWithAI(
-      args.workflowId,
+      args['workflowId'] as string,
       context,
-      args.variables || {}
+      (args['variables'] as Record<string, string>) || {},
     );
 
     const stepResults = result.steps
@@ -699,10 +704,10 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleListTemplates(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
-    const templates = args.search
-      ? await this.storage.searchTemplates(args.search)
+    const templates = args['search']
+      ? await this.storage.searchTemplates(args['search'] as string)
       : await this.storage.listTemplates();
 
     const templateList = templates
@@ -726,9 +731,9 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleCreateTemplate(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
-    const template = args.template as CodeTemplate;
+    const template = args['template'] as CodeTemplate;
     await this.storage.saveTemplate(template);
 
     return {
@@ -742,19 +747,20 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleGetGuidance(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const context: GuidanceContext = {
-      projectPath: args.projectPath,
-      currentFile: args.filePath,
-      projectType: args.projectType || 'general',
-      frameworks: args.frameworks || [],
-      qualityLevel: args.qualityLevel || 'moderate',
+      projectPath: args['projectPath'] as string,
+      currentFile: args['filePath'] as string,
+      projectType: (args['projectType'] as string) || 'general',
+      frameworks: (args['frameworks'] as string[]) || [],
+      qualityLevel:
+        (args['qualityLevel'] as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
     const analysis = await this.guidanceEngine.analyzeCode(
-      args.filePath,
-      context
+      args['filePath'] as string,
+      context,
     );
 
     const suggestions = analysis.suggestions.map((s) => `- ${s}`).join('\n');
@@ -764,7 +770,7 @@ export class CodeGuidanceMCPServer {
     const suggestedWorkflows = analysis.suggestedWorkflows
       .map(
         (w) =>
-          `- **${w.metadata['name'] || w.id}**: ${w.content.substring(0, 100)}...`
+          `- **${w.metadata['name'] || w.id}**: ${w.content.substring(0, 100)}...`,
       )
       .join('\n');
     const patterns = analysis.patterns.map((p) => `- ${p}`).join('\n');
@@ -777,7 +783,7 @@ export class CodeGuidanceMCPServer {
         {
           type: 'text',
           text:
-            `**AI-Powered Guidance for ${args.filePath}**\n\n` +
+            `**AI-Powered Guidance for ${args['filePath']}**\n\n` +
             `**Complexity Score:** ${analysis.complexityScore.toFixed(1)}/100\n\n` +
             `**Detected Patterns:**\n${patterns}\n\n` +
             `**Suggestions:**\n${suggestions || 'None'}\n\n` +
@@ -790,19 +796,20 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleValidateCode(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const context: GuidanceContext = {
-      projectPath: args.projectPath,
-      currentFile: args.filePath,
-      projectType: args.projectType || 'general',
-      frameworks: args.frameworks || [],
-      qualityLevel: args.qualityLevel || 'moderate',
+      projectPath: args['projectPath'] as string,
+      currentFile: args['filePath'] as string,
+      projectType: (args['projectType'] as string) || 'general',
+      frameworks: (args['frameworks'] as string[]) || [],
+      qualityLevel:
+        (args['qualityLevel'] as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
     const analysis = await this.guidanceEngine.analyzeCode(
-      args.filePath,
-      context
+      args['filePath'] as string,
+      context,
     );
 
     return {
@@ -810,7 +817,7 @@ export class CodeGuidanceMCPServer {
         {
           type: 'text',
           text:
-            `**AI Code Validation Results for ${args.filePath}**\n\n` +
+            `**AI Code Validation Results for ${args['filePath']}**\n\n` +
             `**Quality Score:** ${analysis.complexityScore.toFixed(1)}/100\n\n` +
             `**Quality Issues Found:**\n${analysis.qualityIssues.map((q) => `- ${q}`).join('\n') || 'None - Code looks good!'}\n\n` +
             `**Patterns Detected:**\n${analysis.patterns.map((p) => `- ${p}`).join('\n')}\n\n` +
@@ -821,14 +828,14 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleListQualityRules(
-    args: any
+    _args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const rules = await this.storage.listQualityRules();
 
     const ruleList = rules
       .map(
         (r) =>
-          `- **${r.name}** (${r.severity})\n  Type: ${r.type}\n  ${r.description}`
+          `- **${r.name}** (${r.severity})\n  Type: ${r.type}\n  ${r.description}`,
       )
       .join('\n\n');
 
@@ -843,9 +850,9 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleCreateQualityRule(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
-    const rule = args.rule as QualityRule;
+    const rule = args['rule'] as QualityRule;
     await this.storage.saveQualityRule(rule);
 
     return {
@@ -859,38 +866,39 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleAIAnalyzeCode(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const context: GuidanceContext = {
-      projectPath: args.projectPath,
-      currentFile: args.filePath,
-      projectType: args.projectType || 'general',
-      frameworks: args.frameworks || [],
-      qualityLevel: args.qualityLevel || 'moderate',
+      projectPath: args['projectPath'] as string,
+      currentFile: args['filePath'] as string,
+      projectType: (args['projectType'] as string) || 'general',
+      frameworks: (args['frameworks'] as string[]) || [],
+      qualityLevel:
+        (args['qualityLevel'] as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
     const analysis = await this.guidanceEngine.analyzeCode(
-      args.filePath,
-      context
+      args['filePath'] as string,
+      context,
     );
 
     const suggestions = analysis.suggestions.map((s) => `- ${s}`).join('\n');
     const similarCode = analysis.similarCode
       .map(
         (sc) =>
-          `- **${sc.metadata['filePath'] || sc.id}** (${(sc.similarity * 100).toFixed(1)}% similar)`
+          `- **${sc.metadata['filePath'] || sc.id}** (${(sc.similarity * 100).toFixed(1)}% similar)`,
       )
       .join('\n');
     const suggestedWorkflows = analysis.suggestedWorkflows
       .map(
         (sw) =>
-          `- **${sw.metadata['name'] || sw.id}** (${(sw.similarity * 100).toFixed(1)}% match): ${sw.content.substring(0, 100)}...`
+          `- **${sw.metadata['name'] || sw.id}** (${(sw.similarity * 100).toFixed(1)}% match): ${sw.content.substring(0, 100)}...`,
       )
       .join('\n');
     const suggestedTemplates = analysis.suggestedTemplates
       .map(
         (st) =>
-          `- **${st.metadata['name'] || st.id}** (${(st.similarity * 100).toFixed(1)}% match): ${st.content.substring(0, 100)}...`
+          `- **${st.metadata['name'] || st.id}** (${(st.similarity * 100).toFixed(1)}% match): ${st.content.substring(0, 100)}...`,
       )
       .join('\n');
     const qualityIssues = analysis.qualityIssues
@@ -906,7 +914,7 @@ export class CodeGuidanceMCPServer {
         {
           type: 'text',
           text:
-            `**AI Code Analysis for ${args.filePath}**\n\n` +
+            `**AI Code Analysis for ${args['filePath']}**\n\n` +
             `**Complexity Score:** ${analysis.complexityScore.toFixed(1)}/100\n\n` +
             `**Detected Patterns:**\n${patterns}\n\n` +
             `**Suggestions:**\n${suggestions}\n\n` +
@@ -921,17 +929,17 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleSemanticSearchWorkflows(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const results = await this.storage.searchWorkflows(
-      args.query,
-      args.limit || 10
+      args['query'] as string,
+      (args['limit'] as number) || 10,
     );
 
     const workflowList = results
       .map(
         (r) =>
-          `- **${r.metadata['name'] || r.id}** (${(r.similarity * 100).toFixed(1)}% match)\n  ${r.content.substring(0, 200)}...`
+          `- **${r.metadata['name'] || r.id}** (${(r.similarity * 100).toFixed(1)}% match)\n  ${r.content.substring(0, 200)}...`,
       )
       .join('\n\n');
 
@@ -946,18 +954,18 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleSemanticSearchTemplates(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const results = await this.storage.searchTemplates(
-      args.query,
-      args.type,
-      args.limit || 10
+      args['query'] as string,
+      args['type'] as string,
+      (args['limit'] as number) || 10,
     );
 
     const templateList = results
       .map(
         (r) =>
-          `- **${r.metadata['name'] || r.id}** (${(r.similarity * 100).toFixed(1)}% match)\n  Type: ${r.metadata['type'] || 'unknown'}\n  ${r.content.substring(0, 200)}...`
+          `- **${r.metadata['name'] || r.id}** (${(r.similarity * 100).toFixed(1)}% match)\n  Type: ${r.metadata['type'] || 'unknown'}\n  ${r.content.substring(0, 200)}...`,
       )
       .join('\n\n');
 
@@ -972,24 +980,25 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleFindSimilarCode(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const context: GuidanceContext = {
-      projectPath: args.projectPath,
-      currentFile: args.filePath,
-      projectType: args.projectType || 'general',
-      frameworks: args.frameworks || [],
-      qualityLevel: args.qualityLevel || 'moderate',
+      projectPath: args['projectPath'] as string,
+      currentFile: args['filePath'] as string,
+      projectType: (args['projectType'] as string) || 'general',
+      frameworks: (args['frameworks'] as string[]) || [],
+      qualityLevel:
+        (args['qualityLevel'] as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
     const analysis = await this.guidanceEngine.analyzeCode(
-      args.filePath,
-      context
+      args['filePath'] as string,
+      context,
     );
     const similarCode = analysis.similarCode
       .map(
         (sc) =>
-          `- **${sc.metadata['filePath'] || sc.id}** (${(sc.similarity * 100).toFixed(1)}% similar)\n  ${sc.content.substring(0, 300)}...`
+          `- **${sc.metadata['filePath'] || sc.id}** (${(sc.similarity * 100).toFixed(1)}% similar)\n  ${sc.content.substring(0, 300)}...`,
       )
       .join('\n\n');
 
@@ -997,32 +1006,33 @@ export class CodeGuidanceMCPServer {
       content: [
         {
           type: 'text',
-          text: `**Similar Code Patterns for ${args.filePath}:**\n\n${similarCode}`,
+          text: `**Similar Code Patterns for ${args['filePath']}:**\n\n${similarCode}`,
         } as TextContent,
       ],
     };
   }
 
   private async handleExecuteWorkflowWithAI(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const context: GuidanceContext = {
-      projectPath: args.projectPath,
-      projectType: args.projectType || 'general',
-      frameworks: args.frameworks || [],
-      qualityLevel: args.qualityLevel || 'moderate',
+      projectPath: args['projectPath'] as string,
+      projectType: (args['projectType'] as string) || 'general',
+      frameworks: (args['frameworks'] as string[]) || [],
+      qualityLevel:
+        (args['qualityLevel'] as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
     const result = await this.guidanceEngine.executeWorkflowWithAI(
-      args.workflowId,
+      args['workflowId'] as string,
       context,
-      args.variables || {}
+      (args['variables'] as Record<string, string>) || {},
     );
 
     const stepResults = result.steps
       .map(
         (s) =>
-          `${s.success ? '✅' : '❌'} ${s.step.name}: ${s.result}\n  AI Suggestions: ${s.aiSuggestions.join(', ')}`
+          `${s.success ? '✅' : '❌'} ${s.step.name}: ${s.result}\n  AI Suggestions: ${s.aiSuggestions.join(', ')}`,
       )
       .join('\n\n');
 
@@ -1044,26 +1054,27 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleExecuteWorkflowWithRoles(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const context: GuidanceContext = {
-      projectPath: args.projectPath,
-      projectType: args.projectType || 'general',
-      frameworks: args.frameworks || [],
-      qualityLevel: args.qualityLevel || 'moderate',
+      projectPath: args['projectPath'] as string,
+      projectType: (args['projectType'] as string) || 'general',
+      frameworks: (args['frameworks'] as string[]) || [],
+      qualityLevel:
+        (args['qualityLevel'] as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
     const result = await this.enhancedWorkflowEngine.executeWorkflowWithRoles(
-      args.workflowId,
+      args['workflowId'] as string,
       context,
-      args.variables || {},
-      args.agentType || 'general'
+      (args['variables'] as Record<string, string>) || {},
+      (args['agentType'] as string) || 'general',
     );
 
     const stepResults = result.completedSteps
       .map(
         (s) =>
-          `${s.success ? '✅' : '❌'} ${s.step.name}: ${s.result}\n  AI Suggestions: ${s.aiSuggestions.join(', ')}`
+          `${s.success ? '✅' : '❌'} ${s.step.name}: ${s.result}\n  AI Suggestions: ${s.aiSuggestions.join(', ')}`,
       )
       .join('\n\n');
 
@@ -1088,16 +1099,16 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleListRoles(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
-    const roles = args.agentType
-      ? this.roleManager.getRolesForAgent(args.agentType)
+    const roles = args['agentType']
+      ? this.roleManager.getRolesForAgent(args['agentType'] as string)
       : this.roleManager.getAllRoles();
 
     const roleList = roles
       .map(
         (role) =>
-          `- **${role.displayName}** (${role.id})\n  ${role.description}\n  Capabilities: ${role.capabilities.join(', ')}\n  Next Roles: ${role.nextRoles.join(', ') || 'None'}`
+          `- **${role.displayName}** (${role.id})\n  ${role.description}\n  Capabilities: ${role.capabilities.join(', ')}\n  Next Roles: ${role.nextRoles.join(', ') || 'None'}`,
       )
       .join('\n\n');
 
@@ -1112,11 +1123,11 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleGetRoleGuidance(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const guidance = this.roleManager.getRoleGuidance(
-      args.roleId,
-      args.context || {}
+      args['roleId'] as string,
+      (args['context'] as Record<string, unknown>) || {},
     );
 
     const guidanceList = guidance.guidance.map((g) => `- ${g}`).join('\n');
@@ -1134,17 +1145,17 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleGetExecutionStatus(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const execution = await this.executionTracker.getExecution(
-      args.executionId
+      args['executionId'] as string,
     );
     if (!execution) {
       return {
         content: [
           {
             type: 'text',
-            text: `Execution ${args.executionId} not found`,
+            text: `Execution ${args['executionId']} not found`,
           } as TextContent,
         ],
       };
@@ -1153,7 +1164,7 @@ export class CodeGuidanceMCPServer {
     const roleHistory = execution.roleHistory
       .map(
         (transition) =>
-          `- ${transition.fromRole} → ${transition.toRole} (${new Date(transition.timestamp).toLocaleString()})`
+          `- ${transition.fromRole} → ${transition.toRole} (${new Date(transition.timestamp).toLocaleString()})`,
       )
       .join('\n');
 
@@ -1168,17 +1179,17 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleTransitionRole(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const execution = await this.executionTracker.getExecution(
-      args.executionId
+      args['executionId'] as string,
     );
     if (!execution) {
       return {
         content: [
           {
             type: 'text',
-            text: `Execution ${args.executionId} not found`,
+            text: `Execution ${args['executionId']} not found`,
           } as TextContent,
         ],
       };
@@ -1186,23 +1197,23 @@ export class CodeGuidanceMCPServer {
 
     const validation = this.roleManager.validateRoleTransition(
       execution,
-      args.toRoleId
+      args['toRoleId'] as string,
     );
     if (!validation.valid) {
       return {
         content: [
           {
             type: 'text',
-            text: `Cannot transition to role ${args.toRoleId}: ${validation.reason}\n\nRequirements: ${validation.requirements?.join(', ') || 'None'}`,
+            text: `Cannot transition to role ${args['toRoleId']}: ${validation.reason}\n\nRequirements: ${validation.requirements?.join(', ') || 'None'}`,
           } as TextContent,
         ],
       };
     }
 
     const updatedExecution = await this.executionTracker.transitionRole(
-      args.executionId,
-      args.toRoleId,
-      args.handoffNotes || ''
+      args['executionId'] as string,
+      args['toRoleId'] as string,
+      (args['handoffNotes'] as string) || '',
     );
 
     if (!updatedExecution) {
@@ -1210,7 +1221,7 @@ export class CodeGuidanceMCPServer {
         content: [
           {
             type: 'text',
-            text: `Failed to transition to role ${args.toRoleId}`,
+            text: `Failed to transition to role ${args['toRoleId']}`,
           } as TextContent,
         ],
       };
@@ -1220,18 +1231,18 @@ export class CodeGuidanceMCPServer {
       content: [
         {
           type: 'text',
-          text: `✅ Successfully transitioned to role ${args.toRoleId}\n\n**New Status:**\n- Current Role: ${updatedExecution.currentRole}\n- Status: ${updatedExecution.status}\n- Updated: ${new Date(updatedExecution.updatedAt).toLocaleString()}`,
+          text: `✅ Successfully transitioned to role ${args['toRoleId']}\n\n**New Status:**\n- Current Role: ${updatedExecution.currentRole}\n- Status: ${updatedExecution.status}\n- Updated: ${new Date(updatedExecution.updatedAt).toLocaleString()}`,
         } as TextContent,
       ],
     };
   }
 
   private async handlePauseExecution(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const execution = await this.executionTracker.pauseExecution(
-      args.executionId,
-      args.reason || 'Paused by user'
+      args['executionId'] as string,
+      (args['reason'] as string) || 'Paused by user',
     );
 
     if (!execution) {
@@ -1239,7 +1250,7 @@ export class CodeGuidanceMCPServer {
         content: [
           {
             type: 'text',
-            text: `Execution ${args.executionId} not found`,
+            text: `Execution ${args['executionId']} not found`,
           } as TextContent,
         ],
       };
@@ -1249,17 +1260,17 @@ export class CodeGuidanceMCPServer {
       content: [
         {
           type: 'text',
-          text: `✅ Execution ${args.executionId} paused\n\n**Reason:** ${args.reason || 'Paused by user'}\n**Status:** ${execution.status}\n**Paused At:** ${new Date(execution.updatedAt).toLocaleString()}`,
+          text: `✅ Execution ${args['executionId']} paused\n\n**Reason:** ${args['reason'] || 'Paused by user'}\n**Status:** ${execution.status}\n**Paused At:** ${new Date(execution.updatedAt).toLocaleString()}`,
         } as TextContent,
       ],
     };
   }
 
   private async handleResumeExecution(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const execution = await this.executionTracker.resumeExecution(
-      args.executionId
+      args['executionId'] as string,
     );
 
     if (!execution) {
@@ -1267,7 +1278,7 @@ export class CodeGuidanceMCPServer {
         content: [
           {
             type: 'text',
-            text: `Execution ${args.executionId} not found or not paused`,
+            text: `Execution ${args['executionId']} not found or not paused`,
           } as TextContent,
         ],
       };
@@ -1277,17 +1288,17 @@ export class CodeGuidanceMCPServer {
       content: [
         {
           type: 'text',
-          text: `✅ Execution ${args.executionId} resumed\n\n**Status:** ${execution.status}\n**Resumed At:** ${new Date(execution.updatedAt).toLocaleString()}`,
+          text: `✅ Execution ${args['executionId']} resumed\n\n**Status:** ${execution.status}\n**Resumed At:** ${new Date(execution.updatedAt).toLocaleString()}`,
         } as TextContent,
       ],
     };
   }
 
   private async handleGetExecutionMetrics(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const metrics = await this.executionTracker.getExecutionMetrics(
-      args.executionId
+      args['executionId'] as string,
     );
 
     if (!metrics) {
@@ -1295,7 +1306,7 @@ export class CodeGuidanceMCPServer {
         content: [
           {
             type: 'text',
-            text: `Execution ${args.executionId} not found`,
+            text: `Execution ${args['executionId']} not found`,
           } as TextContent,
         ],
       };
@@ -1305,7 +1316,7 @@ export class CodeGuidanceMCPServer {
       content: [
         {
           type: 'text',
-          text: `**Execution Metrics for ${args.executionId}**\n\n**Progress:**\n- Total Steps: ${metrics.totalSteps}\n- Completed Steps: ${metrics.completedSteps}\n- Success Rate: ${(metrics.successRate * 100).toFixed(1)}%\n\n**Performance:**\n- Average Step Time: ${metrics.averageStepTime.toFixed(0)}ms\n- Quality Score: ${metrics.qualityScore.toFixed(1)}/100\n- Role Transitions: ${metrics.roleTransitions}`,
+          text: `**Execution Metrics for ${args['executionId']}**\n\n**Progress:**\n- Total Steps: ${metrics.totalSteps}\n- Completed Steps: ${metrics.completedSteps}\n- Success Rate: ${(metrics.successRate * 100).toFixed(1)}%\n\n**Performance:**\n- Average Step Time: ${metrics.averageStepTime.toFixed(0)}ms\n- Quality Score: ${metrics.qualityScore.toFixed(1)}/100\n- Role Transitions: ${metrics.roleTransitions}`,
         } as TextContent,
       ],
     };
@@ -1313,7 +1324,7 @@ export class CodeGuidanceMCPServer {
 
   // AI Migration Handlers
   private async handleAIMigrateData(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const {
       instruction,
@@ -1321,14 +1332,23 @@ export class CodeGuidanceMCPServer {
       target = 'hybrid-storage',
       options = {},
     } = args;
-    const { dryRun = false, backup = true, validate = true } = options;
+    const optionsObj = options as Record<string, unknown>;
+    const {
+      dryRun = false,
+      backup = true,
+      validate = true,
+    } = {
+      dryRun: optionsObj['dryRun'] as boolean,
+      backup: optionsObj['backup'] as boolean,
+      validate: optionsObj['validate'] as boolean,
+    };
 
     try {
       // AI-powered migration logic
       const migrationPlan = await this.generateMigrationPlan(
-        instruction,
-        source,
-        target
+        instruction as string,
+        source as string,
+        target as string,
       );
 
       if (dryRun) {
@@ -1371,10 +1391,20 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleAIMigrateWorkflows(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { transformation, filters = {}, options = {} } = args;
-    const { dryRun = false, backup = true, validate = true } = options;
+    const optionsObj = options as Record<string, unknown>;
+    const {
+      dryRun = false,
+      backup = true,
+      validate = true,
+    } = {
+      dryRun: optionsObj['dryRun'] as boolean,
+      backup: optionsObj['backup'] as boolean,
+      validate: optionsObj['validate'] as boolean,
+    };
+    const filtersObj = filters as Record<string, unknown>;
 
     try {
       // Get workflows to migrate
@@ -1382,21 +1412,26 @@ export class CodeGuidanceMCPServer {
       let filteredWorkflows = workflows;
 
       // Apply filters
-      if (filters.tags && filters.tags.length > 0) {
+      if (
+        filtersObj['tags'] &&
+        Array.isArray(filtersObj['tags']) &&
+        filtersObj['tags'].length > 0
+      ) {
+        const tags = filtersObj['tags'] as string[];
         filteredWorkflows = filteredWorkflows.filter((w) =>
-          w.tags.some((tag) => filters.tags.includes(tag))
+          w.tags.some((tag) => tags.includes(tag)),
         );
       }
-      if (filters.namePattern) {
-        const pattern = new RegExp(filters.namePattern, 'i');
+      if (filtersObj['namePattern']) {
+        const pattern = new RegExp(filtersObj['namePattern'] as string, 'i');
         filteredWorkflows = filteredWorkflows.filter((w) =>
-          pattern.test(w.name)
+          pattern.test(w.name),
         );
       }
-      if (filters.createdAfter) {
-        const cutoffDate = new Date(filters.createdAfter);
+      if (filtersObj['createdAfter']) {
+        const cutoffDate = new Date(filtersObj['createdAfter'] as string);
         filteredWorkflows = filteredWorkflows.filter(
-          (w) => new Date(w.createdAt) > cutoffDate
+          (w) => new Date(w.createdAt) > cutoffDate,
         );
       }
 
@@ -1419,7 +1454,7 @@ export class CodeGuidanceMCPServer {
       // Transform workflows
       const transformedWorkflows = await this.transformWorkflows(
         filteredWorkflows,
-        transformation
+        transformation as string,
       );
 
       // Save transformed workflows
@@ -1453,10 +1488,20 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleAIMigrateTemplates(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { transformation, filters = {}, options = {} } = args;
-    const { dryRun = false, backup = true, validate = true } = options;
+    const optionsObj = options as Record<string, unknown>;
+    const {
+      dryRun = false,
+      backup = true,
+      validate = true,
+    } = {
+      dryRun: optionsObj['dryRun'] as boolean,
+      backup: optionsObj['backup'] as boolean,
+      validate: optionsObj['validate'] as boolean,
+    };
+    const filtersObj = filters as Record<string, unknown>;
 
     try {
       // Get templates to migrate
@@ -1464,14 +1509,19 @@ export class CodeGuidanceMCPServer {
       let filteredTemplates = templates;
 
       // Apply filters
-      if (filters.type) {
+      if (filtersObj['type']) {
         filteredTemplates = filteredTemplates.filter(
-          (t) => t.type === filters.type
+          (t) => t.type === filtersObj['type'],
         );
       }
-      if (filters.tags && filters.tags.length > 0) {
+      if (
+        filtersObj['tags'] &&
+        Array.isArray(filtersObj['tags']) &&
+        filtersObj['tags'].length > 0
+      ) {
+        const tags = filtersObj['tags'] as string[];
         filteredTemplates = filteredTemplates.filter((t) =>
-          t.tags.some((tag) => filters.tags.includes(tag))
+          t.tags.some((tag) => tags.includes(tag)),
         );
       }
 
@@ -1494,7 +1544,7 @@ export class CodeGuidanceMCPServer {
       // Transform templates
       const transformedTemplates = await this.transformTemplates(
         filteredTemplates,
-        transformation
+        transformation as string,
       );
 
       // Save transformed templates
@@ -1528,10 +1578,20 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleAIMigrateQualityRules(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { transformation, filters = {}, options = {} } = args;
-    const { dryRun = false, backup = true, validate = true } = options;
+    const optionsObj = options as Record<string, unknown>;
+    const {
+      dryRun = false,
+      backup = true,
+      validate = true,
+    } = {
+      dryRun: optionsObj['dryRun'] as boolean,
+      backup: optionsObj['backup'] as boolean,
+      validate: optionsObj['validate'] as boolean,
+    };
+    const filtersObj = filters as Record<string, unknown>;
 
     try {
       // Get quality rules to migrate
@@ -1539,12 +1599,12 @@ export class CodeGuidanceMCPServer {
       let filteredRules = rules;
 
       // Apply filters
-      if (filters.type) {
-        filteredRules = filteredRules.filter((r) => r.type === filters.type);
+      if (filtersObj['type']) {
+        filteredRules = filteredRules.filter((r) => r.type === filtersObj['type']);
       }
-      if (filters.severity) {
+      if (filtersObj['severity']) {
         filteredRules = filteredRules.filter(
-          (r) => r.severity === filters.severity
+          (r) => r.severity === filtersObj['severity'],
         );
       }
 
@@ -1567,7 +1627,7 @@ export class CodeGuidanceMCPServer {
       // Transform quality rules
       const transformedRules = await this.transformQualityRules(
         filteredRules,
-        transformation
+        transformation as string,
       );
 
       // Save transformed rules
@@ -1604,7 +1664,7 @@ export class CodeGuidanceMCPServer {
   private async generateMigrationPlan(
     instruction: string,
     source: string,
-    target: string
+    target: string,
   ) {
     // AI-powered migration plan generation
     const plan = {
@@ -1625,7 +1685,7 @@ export class CodeGuidanceMCPServer {
       const workflows = await this.storage.listWorkflows();
       const templates = await this.storage.listTemplates();
       const rules = await this.storage.listQualityRules();
-      plan.itemCount = workflows.length + templates.length + rules.length;
+      plan['itemCount'] = workflows.length + templates.length + rules.length;
     }
 
     return plan;
@@ -1639,21 +1699,24 @@ export class CodeGuidanceMCPServer {
     await mkdir(backupPath, { recursive: true });
     await writeFile(
       `${backupPath}/workflows.json`,
-      JSON.stringify(await this.storage.listWorkflows(), null, 2)
+      JSON.stringify(await this.storage.listWorkflows(), null, 2),
     );
     await writeFile(
       `${backupPath}/templates.json`,
-      JSON.stringify(await this.storage.listTemplates(), null, 2)
+      JSON.stringify(await this.storage.listTemplates(), null, 2),
     );
     await writeFile(
       `${backupPath}/quality-rules.json`,
-      JSON.stringify(await this.storage.listQualityRules(), null, 2)
+      JSON.stringify(await this.storage.listQualityRules(), null, 2),
     );
 
     return backupPath;
   }
 
-  private async executeMigration(plan: any, validate: boolean) {
+  private async executeMigration(
+    plan: Record<string, unknown>,
+    _validate: boolean,
+  ) {
     const startTime = Date.now();
 
     // Simulate migration execution
@@ -1664,7 +1727,7 @@ export class CodeGuidanceMCPServer {
     return {
       summary:
         'Migration completed successfully with all data transformed and validated.',
-      itemCount: plan.itemCount,
+      itemCount: plan['itemCount'] as number,
       duration: `${Math.round(duration / 1000)}s`,
       nextSteps: [
         'Review migrated data',
@@ -1676,7 +1739,7 @@ export class CodeGuidanceMCPServer {
 
   private async transformWorkflows(
     workflows: Workflow[],
-    transformation: string
+    transformation: string,
   ) {
     // AI-powered workflow transformation
     return workflows.map((workflow) => {
@@ -1703,7 +1766,7 @@ export class CodeGuidanceMCPServer {
 
   private async transformTemplates(
     templates: CodeTemplate[],
-    transformation: string
+    transformation: string,
   ) {
     // AI-powered template transformation
     return templates.map((template) => {
@@ -1712,11 +1775,11 @@ export class CodeGuidanceMCPServer {
       // Apply transformation based on instruction
       if (transformation.includes('update variable syntax')) {
         transformed.variables = template.variables.map((v) =>
-          v.replace(/\{\{/g, '{{').replace(/\}\}/g, '}}')
+          v.replace(/\{\{/g, '{{').replace(/\}\}/g, '}}'),
         );
       }
       if (transformation.includes('add new template fields')) {
-        transformed.tags = [...template.tags, 'ai-migrated'];
+        transformed.tags = [...template['tags'], 'ai-migrated'];
       }
 
       transformed.updatedAt = new Date().toISOString();
@@ -1726,7 +1789,7 @@ export class CodeGuidanceMCPServer {
 
   private async transformQualityRules(
     rules: QualityRule[],
-    transformation: string
+    transformation: string,
   ) {
     // AI-powered quality rules transformation
     return rules.map((rule) => {
@@ -1777,7 +1840,7 @@ export class CodeGuidanceMCPServer {
   }
 
   // Project Management Handlers
-  private async handleListProjects(args: any) {
+  private async handleListProjects(_args: Record<string, unknown>) {
     const projects = await this.projectManager.listProjects();
 
     if (projects.length === 0) {
@@ -1794,11 +1857,11 @@ export class CodeGuidanceMCPServer {
     const projectList = projects
       .map(
         (project) =>
-          `**${project.name}** (${project.type})\n` +
+          `**${project.name}** (${project['type']})\n` +
           `  Path: ${project.path}\n` +
-          `  Frameworks: ${project.frameworks.join(', ') || 'None'}\n` +
-          `  Languages: ${project.languages.join(', ') || 'None'}\n` +
-          `  Last Used: ${new Date(project.lastUsed).toLocaleDateString()}`
+          `  Frameworks: ${project['frameworks'].join(', ') || 'None'}\n` +
+          `  Languages: ${project['languages'].join(', ') || 'None'}\n` +
+          `  Last Used: ${new Date(project.lastUsed).toLocaleDateString()}`,
       )
       .join('\n\n');
 
@@ -1812,8 +1875,8 @@ export class CodeGuidanceMCPServer {
     };
   }
 
-  private async handleInitProject(args: any) {
-    const projectPath = args.projectPath || process.cwd();
+  private async handleInitProject(args: Record<string, unknown>) {
+    const projectPath = (args['projectPath'] as string) || process.cwd();
 
     try {
       const projectInfo =
@@ -1851,8 +1914,8 @@ export class CodeGuidanceMCPServer {
     }
   }
 
-  private async handleGetProjectInfo(args: any) {
-    const projectPath = args.projectPath || process.cwd();
+  private async handleGetProjectInfo(args: Record<string, unknown>) {
+    const projectPath = (args['projectPath'] as string) || process.cwd();
     const projectInfo = await this.projectManager.getProjectInfo(projectPath);
 
     if (!projectInfo) {
@@ -1894,8 +1957,8 @@ export class CodeGuidanceMCPServer {
     };
   }
 
-  private async handleSyncGlobalToProject(args: any) {
-    const projectPath = args.projectPath || process.cwd();
+  private async handleSyncGlobalToProject(args: Record<string, unknown>) {
+    const projectPath = (args['projectPath'] as string) || process.cwd();
 
     try {
       const projectInfo = await this.projectManager.getProjectInfo(projectPath);
@@ -1918,7 +1981,12 @@ export class CodeGuidanceMCPServer {
       const globalTemplates = await globalStorage.listTemplates();
       let syncedTemplates = 0;
       for (const template of globalTemplates) {
-        if (this.isTemplateApplicable(template, projectInfo)) {
+        if (
+          this.isTemplateApplicable(
+            template as unknown as Record<string, unknown>,
+            projectInfo as unknown as Record<string, unknown>,
+          )
+        ) {
           await projectStorage.saveTemplate(template);
           syncedTemplates++;
         }
@@ -1928,7 +1996,12 @@ export class CodeGuidanceMCPServer {
       const globalWorkflows = await globalStorage.listWorkflows();
       let syncedWorkflows = 0;
       for (const workflow of globalWorkflows) {
-        if (this.isWorkflowApplicable(workflow, projectInfo)) {
+        if (
+          this.isWorkflowApplicable(
+            workflow as unknown as Record<string, unknown>,
+            projectInfo as unknown as Record<string, unknown>,
+          )
+        ) {
           await projectStorage.saveWorkflow(workflow);
           syncedWorkflows++;
         }
@@ -1959,44 +2032,58 @@ export class CodeGuidanceMCPServer {
     }
   }
 
-  private isTemplateApplicable(template: any, project: any): boolean {
-    const templateTags = template.tags || [];
+  private isTemplateApplicable(
+    template: Record<string, unknown>,
+    project: Record<string, unknown>,
+  ): boolean {
+    const templateTags = (template['tags'] as string[]) || [];
+    const projectFrameworks = (project['frameworks'] as string[]) || [];
+    const projectLanguages = (project['languages'] as string[]) || [];
+    const projectType = project['type'] as string;
+
     return templateTags.some(
       (tag: string) =>
-        project.frameworks.includes(tag) ||
-        project.languages.includes(tag) ||
-        project.type === tag
+        projectFrameworks.includes(tag) ||
+        projectLanguages.includes(tag) ||
+        projectType === tag,
     );
   }
 
-  private isWorkflowApplicable(workflow: any, project: any): boolean {
-    const workflowTags = workflow.tags || [];
+  private isWorkflowApplicable(
+    workflow: Record<string, unknown>,
+    project: Record<string, unknown>,
+  ): boolean {
+    const workflowTags = (workflow['tags'] as string[]) || [];
+    const projectFrameworks = (project['frameworks'] as string[]) || [];
+    const projectLanguages = (project['languages'] as string[]) || [];
+    const projectType = project['type'] as string;
+
     return workflowTags.some(
       (tag: string) =>
-        project.frameworks.includes(tag) ||
-        project.languages.includes(tag) ||
-        project.type === tag
+        projectFrameworks.includes(tag) ||
+        projectLanguages.includes(tag) ||
+        projectType === tag,
     );
   }
 
   // Memory Management Handlers
-  private async handleSaveMemory(args: any) {
+  private async handleSaveMemory(args: Record<string, unknown>) {
     try {
       const { content, type, category, context = {}, tags = [] } = args;
 
       const decision = await this.memoryRouter.routeMemory(
-        content,
+        content as string,
         type as MemoryType,
         category as MemoryCategory,
-        context,
-        tags
+        context as Record<string, unknown>,
+        tags as string[],
       );
 
       return {
         content: [
           {
             type: 'text',
-            text: `✅ **Memory Saved Successfully**\n\n**Content:** ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}\n**Type:** ${type}\n**Category:** ${category}\n**Scope:** ${decision.scope}\n**Confidence:** ${(decision.confidence * 100).toFixed(1)}%\n\n**Reasoning:** ${decision.reasoning}\n\n**Key Factors:**\n${decision.factors.map((factor) => `- ${factor}`).join('\n')}`,
+            text: `✅ **Memory Saved Successfully**\n\n**Content:** ${(content as string).substring(0, 100)}${(content as string).length > 100 ? '...' : ''}\n**Type:** ${type}\n**Category:** ${category}\n**Scope:** ${decision.scope}\n**Confidence:** ${(decision.confidence * 100).toFixed(1)}%\n\n**Reasoning:** ${decision.reasoning}\n\n**Key Factors:**\n${decision.factors.map((factor) => `- ${factor}`).join('\n')}`,
           } as TextContent,
         ],
       };
@@ -2012,16 +2099,16 @@ export class CodeGuidanceMCPServer {
     }
   }
 
-  private async handleSearchMemories(args: any) {
+  private async handleSearchMemories(args: Record<string, unknown>) {
     try {
       const { query, type, category, scope, limit = 10 } = args;
 
       const results = await this.memoryRouter.searchMemories(
-        query,
+        query as string,
         scope as 'global' | 'project',
         type as MemoryType,
         category as MemoryCategory,
-        limit
+        limit as number,
       );
 
       if (results.length === 0) {
@@ -2062,7 +2149,7 @@ export class CodeGuidanceMCPServer {
     }
   }
 
-  private async handleListMemories(args: any) {
+  private async handleListMemories(args: Record<string, unknown>) {
     try {
       const { type, category, scope, limit = 50 } = args;
 
@@ -2070,7 +2157,7 @@ export class CodeGuidanceMCPServer {
         type as MemoryType,
         category as MemoryCategory,
         scope as 'global' | 'project',
-        limit
+        limit as number,
       );
 
       if (memories.length === 0) {
@@ -2110,13 +2197,13 @@ export class CodeGuidanceMCPServer {
     }
   }
 
-  private async handleGetMemory(args: any) {
+  private async handleGetMemory(args: Record<string, unknown>) {
     try {
       const { id, scope } = args;
 
       const memory = await this.memoryRouter.getMemory(
-        id,
-        scope as 'global' | 'project'
+        id as string,
+        scope as 'global' | 'project',
       );
 
       if (!memory) {
@@ -2150,7 +2237,7 @@ export class CodeGuidanceMCPServer {
     }
   }
 
-  private async handleGetMemoryStats(args: any) {
+  private async handleGetMemoryStats(_args: Record<string, unknown>) {
     try {
       const stats = await this.storage.getMemoryStats();
 
@@ -2187,25 +2274,31 @@ export class CodeGuidanceMCPServer {
   }
 
   // Memory Rule Management Handlers
-  private async handleEnhanceAgentRequest(args: any) {
+  private async handleEnhanceAgentRequest(args: Record<string, unknown>) {
     try {
       const { request, context = {} } = args;
+      const contextObj = context as Record<string, unknown>;
 
       const agentContext: AgentRequestContext = {
-        filePath: context.filePath,
-        projectPath: context.projectPath || this.projectPath,
-        projectType: context.projectType,
-        workflowId: context.workflowId,
-        workflowStep: context.workflowStep,
-        userQuery: context.userQuery,
-        codeContent: context.codeContent,
-        analysisType: context.analysisType,
-        agentType: context.agentType,
+        filePath: contextObj['filePath'] as string,
+        projectPath:
+          (contextObj['projectPath'] as string) || this.projectPath || '',
+        projectType: contextObj['projectType'] as string,
+        workflowId: contextObj['workflowId'] as string,
+        workflowStep: contextObj['workflowStep'] as string,
+        userQuery: contextObj['userQuery'] as string,
+        codeContent: contextObj['codeContent'] as string,
+        analysisType: contextObj['analysisType'] as string,
+        agentType: contextObj['agentType'] as
+          | 'cursor'
+          | 'copilot'
+          | 'roocode'
+          | 'kilocode',
       };
 
       const enhancedRequest = await this.memoryRuleManager.enhanceAgentRequest(
-        request,
-        agentContext
+        request as string,
+        agentContext,
       );
 
       const memorySummary = enhancedRequest.relevantMemories
@@ -2235,18 +2328,20 @@ export class CodeGuidanceMCPServer {
     }
   }
 
-  private async handleInitializeProjectMemoryRules(args: any) {
+  private async handleInitializeProjectMemoryRules(
+    args: Record<string, unknown>,
+  ) {
     try {
       const { projectPath, projectType } = args;
 
       await this.memoryRuleManager.initializeProjectRules(
-        projectPath,
-        projectType
+        projectPath as string,
+        projectType as string,
       );
 
       const rules = this.memoryRuleManager.getRules();
       const projectRules = rules.filter(
-        (rule) => rule.context['projectType'] === projectType
+        (rule) => rule.context['projectType'] === projectType,
       );
 
       const ruleList = projectRules
@@ -2275,12 +2370,12 @@ export class CodeGuidanceMCPServer {
     }
   }
 
-  private async handleListMemoryRules(args: any) {
+  private async handleListMemoryRules(args: Record<string, unknown>) {
     try {
       const { scope } = args;
 
       const rules = await this.storage.listMemoryRules(
-        scope as 'global' | 'project'
+        scope as 'global' | 'project',
       );
 
       if (rules.length === 0) {
@@ -2321,22 +2416,23 @@ export class CodeGuidanceMCPServer {
     }
   }
 
-  private async handleCreateMemoryRule(args: any) {
+  private async handleCreateMemoryRule(args: Record<string, unknown>) {
     try {
       const { rule } = args;
+      const ruleObj = rule as Record<string, unknown>;
 
       const memoryRule: MemoryRule = {
         id: `rule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: rule.name,
-        description: rule.description,
-        trigger: rule.trigger,
-        scope: rule.scope,
-        memoryTypes: rule.memoryTypes,
-        memoryCategories: rule.memoryCategories,
-        maxMemories: rule.maxMemories || 5,
-        relevanceThreshold: rule.relevanceThreshold || 0.6,
-        context: rule.context || {},
-        enabled: rule.enabled !== false,
+        name: ruleObj['name'] as string,
+        description: ruleObj['description'] as string,
+        trigger: ruleObj['trigger'] as any,
+        scope: ruleObj['scope'] as 'global' | 'project',
+        memoryTypes: ruleObj['memoryTypes'] as MemoryType[],
+        memoryCategories: ruleObj['memoryCategories'] as MemoryCategory[],
+        maxMemories: (ruleObj['maxMemories'] as number) || 5,
+        relevanceThreshold: (ruleObj['relevanceThreshold'] as number) || 0.6,
+        context: (ruleObj['context'] as Record<string, unknown>) || {},
+        enabled: ruleObj['enabled'] !== false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -2365,7 +2461,7 @@ export class CodeGuidanceMCPServer {
 
   // Consolidated handler methods
   private async handleManageWorkflows(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { action, ...restArgs } = args;
 
@@ -2384,7 +2480,7 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleManageTemplates(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { action, ...restArgs } = args;
 
@@ -2399,7 +2495,7 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleAnalyzeCode(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { analysisType, ...restArgs } = args;
 
@@ -2418,7 +2514,7 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleManageQualityRules(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { action, ...restArgs } = args;
 
@@ -2433,7 +2529,7 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleSemanticSearch(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { type, ...restArgs } = args;
 
@@ -2450,7 +2546,7 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleManageExecution(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { action, ...restArgs } = args;
 
@@ -2473,7 +2569,7 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleManageRoles(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { action, ...restArgs } = args;
 
@@ -2488,7 +2584,7 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleAIMigrate(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { type, ...restArgs } = args;
 
@@ -2507,7 +2603,7 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleManageProjects(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { action, ...restArgs } = args;
 
@@ -2528,9 +2624,9 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleAutoInitProject(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
-    const projectPath = args.projectPath || process.cwd();
+    const projectPath = (args['projectPath'] as string) || process.cwd();
 
     try {
       // Auto-detect project without requiring projectType
@@ -2580,7 +2676,7 @@ export class CodeGuidanceMCPServer {
   }
 
   private async createProjectSpecificRules(
-    projectInfo: ProjectInfo
+    projectInfo: ProjectInfo,
   ): Promise<void> {
     // Create memory rules based on detected tech stack
     const rules = [];
@@ -2691,7 +2787,7 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleManageMemories(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { action, ...restArgs } = args;
 
@@ -2712,7 +2808,7 @@ export class CodeGuidanceMCPServer {
   }
 
   private async handleManageMemoryRules(
-    args: any
+    args: Record<string, unknown>,
   ): Promise<{ content: TextContent[] }> {
     const { action, ...restArgs } = args;
 

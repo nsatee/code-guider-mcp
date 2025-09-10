@@ -75,7 +75,7 @@ export interface WorkflowRole {
   description: string;
   capabilities: string[];
   responsibilities: string[];
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   qualityGates: string[];
   nextRoles: string[];
 }
@@ -86,7 +86,7 @@ export interface WorkflowExecution {
   currentRole: string;
   completedSteps: string[];
   currentStep: string;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   status: 'running' | 'paused' | 'completed' | 'failed' | 'waiting';
   createdAt: string;
   updatedAt: string;
@@ -106,7 +106,7 @@ export interface RoleTransition {
   fromRole: string;
   toRole: string;
   timestamp: string;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   handoffNotes: string;
 }
 
@@ -119,8 +119,8 @@ export interface StepExecution {
   startedAt?: string;
   completedAt?: string;
   result?: string;
-  metrics?: Record<string, any>;
-  context: Record<string, any>;
+  metrics?: Record<string, unknown>;
+  context: Record<string, unknown>;
   aiSuggestions: string[];
   qualityChecks: QualityCheckResult[];
 }
@@ -141,7 +141,7 @@ export interface WorkflowTemplate {
   roles: string[];
   steps: WorkflowStep[];
   qualityGates: string[];
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   variables: string[];
   tags: string[];
   createdAt: string;
@@ -160,7 +160,7 @@ export interface VectorSearchResult {
   id: string;
   content: string;
   similarity: number;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 // Memory Management Types
@@ -172,7 +172,7 @@ export interface Memory {
   category: MemoryCategory;
   tags: string[];
   projectId?: string;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   importance: number; // 1-10 scale
   createdAt: string;
   updatedAt: string;
@@ -228,7 +228,7 @@ export interface MemoryRule {
   memoryCategories: MemoryCategory[];
   maxMemories: number;
   relevanceThreshold: number;
-  context: Record<string, any>;
+  context: Record<string, unknown>;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -243,7 +243,7 @@ export interface MemoryRuleTrigger {
     | 'user_query'
     | 'always';
   patterns: string[];
-  conditions: Record<string, any>;
+  conditions: Record<string, unknown>;
 }
 
 export interface AgentRequestContext {
@@ -259,7 +259,7 @@ export interface AgentRequestContext {
 }
 
 export interface EnhancedAgentRequest {
-  originalRequest: any;
+  originalRequest: unknown;
   context: AgentRequestContext;
   relevantMemories: MemorySearchResult[];
   memoryRules: MemoryRule[];

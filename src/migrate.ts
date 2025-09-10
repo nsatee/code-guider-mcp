@@ -1,18 +1,17 @@
 #!/usr/bin/env node
 
+import { existsSync } from 'node:fs';
+import { DatabaseConnection } from './db/connection.js';
+import { HybridStorage } from './hybrid-storage.js';
 import { LocalStorage } from './storage.js';
 import { VectorStorage } from './vector-storage.js';
-import { HybridStorage } from './hybrid-storage.js';
-import { DatabaseConnection } from './db/connection.js';
-import { existsSync } from 'node:fs';
-import { join } from 'path';
 
 /**
  * Migration script to convert from file-based storage to hybrid storage (Drizzle + Vector)
  */
 async function migrateToHybridStorage(): Promise<void> {
   console.log(
-    '🔄 Starting migration from file-based storage to hybrid storage...'
+    '🔄 Starting migration from file-based storage to hybrid storage...',
   );
 
   let hybridStorage: HybridStorage | null = null;
@@ -121,7 +120,7 @@ async function migrateToHybridStorage(): Promise<void> {
 
     console.log('\n💡 The old file-based storage is preserved for backup.');
     console.log(
-      '   You can now use the new hybrid storage with Drizzle ORM + Vector search!'
+      '   You can now use the new hybrid storage with Drizzle ORM + Vector search!',
     );
   } catch (error) {
     console.error('❌ Migration failed:', error);
@@ -136,7 +135,7 @@ async function migrateToHybridStorage(): Promise<void> {
 // Legacy migration function for backward compatibility
 async function migrateToVectorStorage(): Promise<void> {
   console.log(
-    '🔄 Starting migration from file-based storage to vector storage...'
+    '🔄 Starting migration from file-based storage to vector storage...',
   );
 
   const fileStorage = new LocalStorage();
@@ -191,7 +190,7 @@ async function migrateToVectorStorage(): Promise<void> {
 
     console.log('\n💡 The old file-based storage is preserved for backup.');
     console.log(
-      '   You can now use the new AI-powered vector storage features!'
+      '   You can now use the new AI-powered vector storage features!',
     );
   } catch (error) {
     console.error('❌ Migration failed:', error);

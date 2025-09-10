@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { spawn } from 'child_process';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { spawn } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
 import { ProjectManager } from './project-manager.js';
 
@@ -44,7 +44,7 @@ Examples:
   code-guider-mcp --studio                  # Open database studio
 
 For more information, visit: https://github.com/yourusername/code-guider
-`)
+`),
   );
 }
 
@@ -108,16 +108,16 @@ async function startServer(options: {
     projectInfo = await projectManager.getProjectInfo(targetPath);
 
     if (!projectInfo) {
-      console.log(
-        chalk.yellow(`⚠️  Project not initialized at: ${targetPath}`)
-      );
+      console.log(chalk.yellow(`⚠️  Project not initialized at: ${targetPath}`));
       console.log(chalk.cyan('💡 Run with --init to initialize this project'));
       console.log(chalk.cyan('   Or use --global to use global storage'));
       process.exit(1);
     }
 
     console.log(
-      chalk.green(`📁 Using project: ${projectInfo.name} (${projectInfo.type})`)
+      chalk.green(
+        `📁 Using project: ${projectInfo.name} (${projectInfo.type})`,
+      ),
     );
   }
 
@@ -171,7 +171,7 @@ async function listProjects() {
 
   if (projects.length === 0) {
     console.log(
-      chalk.yellow('No projects found. Use --init to initialize a project.')
+      chalk.yellow('No projects found. Use --init to initialize a project.'),
     );
     return;
   }
@@ -185,7 +185,7 @@ async function listProjects() {
     console.log(`   Frameworks: ${project.frameworks.join(', ') || 'None'}`);
     console.log(`   Languages: ${project.languages.join(', ') || 'None'}`);
     console.log(
-      `   Last Used: ${new Date(project.lastUsed).toLocaleDateString()}`
+      `   Last Used: ${new Date(project.lastUsed).toLocaleDateString()}`,
     );
     console.log('');
   }
@@ -205,21 +205,21 @@ async function initializeProject(projectPath?: string) {
     console.log(chalk.cyan(`🔧 Type: ${projectInfo.type}`));
     console.log(
       chalk.cyan(
-        `⚡ Frameworks: ${projectInfo.frameworks.join(', ') || 'None'}`
-      )
+        `⚡ Frameworks: ${projectInfo.frameworks.join(', ') || 'None'}`,
+      ),
     );
     console.log(
-      chalk.cyan(`💻 Languages: ${projectInfo.languages.join(', ') || 'None'}`)
-    );
-    console.log(
-      chalk.gray(
-        `\n💡 Project database created at: ${targetPath}/.guidance/guidance.db`
-      )
+      chalk.cyan(`💻 Languages: ${projectInfo.languages.join(', ') || 'None'}`),
     );
     console.log(
       chalk.gray(
-        `   Global templates and workflows have been synced to this project.`
-      )
+        `\n💡 Project database created at: ${targetPath}/.guidance/guidance.db`,
+      ),
+    );
+    console.log(
+      chalk.gray(
+        `   Global templates and workflows have been synced to this project.`,
+      ),
     );
   } catch (error) {
     console.error(chalk.red('❌ Failed to initialize project:'), error);
@@ -317,8 +317,6 @@ async function main() {
       case 'list-projects':
         await listProjects();
         break;
-
-      case 'start':
       default:
         await startServer(options);
         break;

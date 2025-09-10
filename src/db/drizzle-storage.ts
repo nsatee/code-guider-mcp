@@ -1,24 +1,24 @@
-import { eq, desc, like, or, and, count } from 'drizzle-orm';
-import { DatabaseConnection } from './connection.js';
-import {
-  workflows,
-  templates,
-  qualityRules,
-  projectConfig,
-  memories,
-  memoryRules,
-} from './schema.js';
-import {
-  Workflow,
+import { and, count, desc, eq, like, or } from 'drizzle-orm';
+import type {
   CodeTemplate,
-  QualityRule,
-  ProjectConfig,
   Memory,
-  MemoryType,
   MemoryCategory,
   MemoryRule,
   MemoryRuleTrigger,
+  MemoryType,
+  ProjectConfig,
+  QualityRule,
+  Workflow,
 } from '../types.js';
+import { DatabaseConnection } from './connection.js';
+import {
+  memories,
+  memoryRules,
+  projectConfig,
+  qualityRules,
+  templates,
+  workflows,
+} from './schema.js';
 
 export class DrizzleStorage {
   private db: ReturnType<DatabaseConnection['getDrizzle']>;
@@ -113,8 +113,8 @@ export class DrizzleStorage {
       .where(
         or(
           like(workflows.name, searchTerm),
-          like(workflows.description, searchTerm)
-        )
+          like(workflows.description, searchTerm),
+        ),
       )
       .orderBy(desc(workflows.createdAt));
 
@@ -213,8 +213,8 @@ export class DrizzleStorage {
       .where(
         or(
           like(templates.name, searchTerm),
-          like(templates.description, searchTerm)
-        )
+          like(templates.description, searchTerm),
+        ),
       )
       .orderBy(desc(templates.createdAt));
 
@@ -404,7 +404,7 @@ export class DrizzleStorage {
     type?: MemoryType,
     category?: MemoryCategory,
     scope?: 'global' | 'project',
-    limit: number = 50
+    limit: number = 50,
   ): Promise<Memory[]> {
     let query = this.db.select().from(memories);
 
@@ -481,7 +481,7 @@ export class DrizzleStorage {
         acc[row.type as MemoryType] = row.count;
         return acc;
       },
-      {} as Record<MemoryType, number>
+      {} as Record<MemoryType, number>,
     );
 
     // Get counts by category
@@ -495,7 +495,7 @@ export class DrizzleStorage {
         acc[row.category as MemoryCategory] = row.count;
         return acc;
       },
-      {} as Record<MemoryCategory, number>
+      {} as Record<MemoryCategory, number>,
     );
 
     // Get counts by scope
@@ -509,7 +509,7 @@ export class DrizzleStorage {
         acc[row.scope as 'global' | 'project'] = row.count;
         return acc;
       },
-      {} as Record<'global' | 'project', number>
+      {} as Record<'global' | 'project', number>,
     );
 
     return { total, byType, byCategory, byScope };

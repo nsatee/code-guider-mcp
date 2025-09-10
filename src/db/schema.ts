@@ -1,5 +1,4 @@
-import { sqliteTable, text, integer, blob } from 'drizzle-orm/sqlite-core';
-import { sql } from 'drizzle-orm';
+import { blob, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const workflows = sqliteTable('workflows', {
   id: text('id').primaryKey(),

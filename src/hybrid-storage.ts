@@ -1,17 +1,18 @@
 import { DrizzleStorage } from './db/drizzle-storage.js';
-import { VectorStorage } from './vector-storage.js';
-import {
-  Workflow,
+import type { CodeAnalysis } from './storage-interface.js';
+import type {
   CodeTemplate,
-  QualityRule,
-  ProjectConfig,
-  VectorSearchResult,
   Memory,
-  MemoryType,
   MemoryCategory,
-  MemorySearchResult,
   MemoryRule,
+  MemorySearchResult,
+  MemoryType,
+  ProjectConfig,
+  QualityRule,
+  VectorSearchResult,
+  Workflow,
 } from './types.js';
+import { VectorStorage } from './vector-storage.js';
 
 /**
  * Hybrid storage implementation that combines:
@@ -56,7 +57,7 @@ export class HybridStorage {
 
   async searchWorkflows(
     query: string,
-    limit: number = 10
+    limit: number = 10,
   ): Promise<VectorSearchResult[]> {
     // Use VectorStorage for semantic search
     return await this.vectorStorage.searchWorkflows(query, limit);
@@ -81,7 +82,7 @@ export class HybridStorage {
   async searchTemplates(
     query: string,
     type?: string,
-    limit: number = 10
+    limit: number = 10,
   ): Promise<VectorSearchResult[]> {
     return await this.vectorStorage.searchTemplates(query, type, limit);
   }
@@ -104,7 +105,7 @@ export class HybridStorage {
 
   async searchQualityRules(
     query: string,
-    limit: number = 10
+    limit: number = 10,
   ): Promise<VectorSearchResult[]> {
     return await this.vectorStorage.searchQualityRules(query, limit);
   }
@@ -119,11 +120,12 @@ export class HybridStorage {
   }
 
   // Vector-specific operations (delegate to VectorStorage)
-  async saveCodeAnalysis(analysis: any): Promise<void> {
+  async saveCodeAnalysis(analysis: CodeAnalysis): Promise<void> {
     return await this.vectorStorage.saveCodeAnalysis(analysis);
   }
 
-  async getCodeAnalysis(id: string): Promise<any> {
+  // TODO: Implement this in VectorStorage
+  async getCodeAnalysis(_id: string): Promise<CodeAnalysis | null> {
     // This method doesn't exist in VectorStorage, so we'll implement a simple version
     // In a real implementation, you'd add this to VectorStorage
     return null;
@@ -132,14 +134,14 @@ export class HybridStorage {
   async findSimilarCode(
     filePath: string,
     content: string,
-    limit: number = 5
+    limit: number = 5,
   ): Promise<VectorSearchResult[]> {
     return await this.vectorStorage.findSimilarCode(filePath, content, limit);
   }
 
   async getCodeSuggestions(
     filePath: string,
-    content: string
+    content: string,
   ): Promise<{
     similarCode: VectorSearchResult[];
     suggestedWorkflows: VectorSearchResult[];
@@ -163,7 +165,7 @@ export class HybridStorage {
     type?: MemoryType,
     category?: MemoryCategory,
     scope?: 'global' | 'project',
-    limit: number = 50
+    limit: number = 50,
   ): Promise<Memory[]> {
     return await this.drizzleStorage.listMemories(type, category, scope, limit);
   }
@@ -172,13 +174,13 @@ export class HybridStorage {
     query: string,
     type?: MemoryType,
     category?: MemoryCategory,
-    limit: number = 10
+    limit: number = 10,
   ): Promise<MemorySearchResult[]> {
     return await this.vectorStorage.searchMemories(
       query,
       type,
       category,
-      limit
+      limit,
     );
   }
 

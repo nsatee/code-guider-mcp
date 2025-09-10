@@ -1,14 +1,10 @@
-import { StorageInterface, CodeAnalysis } from './storage-interface.js';
-import { VectorSearchResult } from './types.js';
-import {
-  Workflow,
-  WorkflowStep,
-  CodeTemplate,
-  QualityRule,
+import { existsSync, readFileSync } from 'node:fs';
+import type { CodeAnalysis, StorageInterface } from './storage-interface.js';
+import type {
   GuidanceContext,
+  VectorSearchResult,
+  WorkflowStep,
 } from './types.js';
-import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'path';
 
 export interface AIGuidanceResult {
   suggestions: string[];
@@ -37,7 +33,7 @@ export class AIGuidanceEngine {
 
   async analyzeCode(
     filePath: string,
-    context: GuidanceContext
+    _context: GuidanceContext,
   ): Promise<AIGuidanceResult> {
     if (!existsSync(filePath)) {
       return this.getEmptyResult();
@@ -58,7 +54,7 @@ export class AIGuidanceEngine {
     const patterns = await this.detectPatterns(content);
     const recommendations = await this.generateRecommendations(
       analysis,
-      patterns
+      patterns,
     );
 
     return {
@@ -75,7 +71,7 @@ export class AIGuidanceEngine {
 
   private async performCodeAnalysis(
     filePath: string,
-    content: string
+    content: string,
   ): Promise<CodeAnalysis> {
     const complexity = this.calculateComplexity(content);
     const patterns = await this.detectPatterns(content);
@@ -122,7 +118,7 @@ export class AIGuidanceEngine {
         classComplexity +
         controlComplexity +
         importComplexity,
-      100
+      100,
     );
   }
 
@@ -178,21 +174,21 @@ export class AIGuidanceEngine {
 
   private async generateSuggestions(
     content: string,
-    patterns: string[]
+    patterns: string[],
   ): Promise<string[]> {
     const suggestions: string[] = [];
 
     // TypeScript suggestions
     if (content.includes(': any')) {
       suggestions.push(
-        'Replace "any" type with specific TypeScript types for better type safety'
+        'Replace "any" type with specific TypeScript types for better type safety',
       );
     }
 
     // React suggestions
     if (patterns.includes('react-component') && !content.includes('React.FC')) {
       suggestions.push(
-        'Consider using React.FC type for better component typing'
+        'Consider using React.FC type for better component typing',
       );
     }
 
@@ -202,7 +198,7 @@ export class AIGuidanceEngine {
       !patterns.includes('error-handling')
     ) {
       suggestions.push(
-        'Add try-catch blocks to async functions for proper error handling'
+        'Add try-catch blocks to async functions for proper error handling',
       );
     }
 
@@ -215,7 +211,7 @@ export class AIGuidanceEngine {
     // Performance suggestions
     if (content.includes('map(') && !content.includes('key=')) {
       suggestions.push(
-        'Add unique "key" prop to mapped React elements for better performance'
+        'Add unique "key" prop to mapped React elements for better performance',
       );
     }
 
@@ -269,32 +265,32 @@ export class AIGuidanceEngine {
 
   private async getCodeSuggestions(
     filePath: string,
-    content: string
+    content: string,
   ): Promise<string[]> {
     const suggestions = await this.storage.getCodeSuggestions(
       filePath,
-      content
+      content,
     );
     return suggestions.suggestedWorkflows.map(
-      (w) => `Consider using workflow: ${w.metadata['name'] || w.id}`
+      (w) => `Consider using workflow: ${w.metadata.name || w.id}`,
     );
   }
 
   private async findSimilarCode(
     filePath: string,
-    content: string
+    content: string,
   ): Promise<VectorSearchResult[]> {
     return await this.storage.findSimilarCode(filePath, content, 5);
   }
 
   private async findRelevantWorkflows(
-    content: string
+    content: string,
   ): Promise<VectorSearchResult[]> {
     return await this.storage.searchWorkflows(content, 5);
   }
 
   private async findRelevantTemplates(
-    content: string
+    content: string,
   ): Promise<VectorSearchResult[]> {
     return await this.storage.searchTemplates(content, undefined, 5);
   }
@@ -318,25 +314,25 @@ export class AIGuidanceEngine {
 
   private async generateRecommendations(
     analysis: CodeAnalysis,
-    patterns: string[]
+    patterns: string[],
   ): Promise<string[]> {
     const recommendations: string[] = [];
 
     if (analysis.analysis.complexity > 50) {
       recommendations.push(
-        'Consider breaking down this code into smaller, more manageable functions'
+        'Consider breaking down this code into smaller, more manageable functions',
       );
     }
 
     if (patterns.includes('any-type-usage')) {
       recommendations.push(
-        'Replace "any" types with specific TypeScript types for better type safety'
+        'Replace "any" types with specific TypeScript types for better type safety',
       );
     }
 
     if (analysis.analysis.qualityScore < 70) {
       recommendations.push(
-        'Focus on improving code quality by addressing the identified issues'
+        'Focus on improving code quality by addressing the identified issues',
       );
     }
 
@@ -352,7 +348,7 @@ export class AIGuidanceEngine {
       !patterns.includes('error-handling')
     ) {
       recommendations.push(
-        'Add comprehensive error handling to this API endpoint'
+        'Add comprehensive error handling to this API endpoint',
       );
     }
 
@@ -380,7 +376,7 @@ export class AIGuidanceEngine {
   async executeWorkflowWithAI(
     workflowId: string,
     context: GuidanceContext,
-    variables: Record<string, string> = {}
+    variables: Record<string, string> = {},
   ): Promise<{
     success: boolean;
     steps: Array<{
@@ -420,7 +416,7 @@ export class AIGuidanceEngine {
         const aiSuggestions = await this.generateStepSuggestions(
           step,
           context,
-          variables
+          variables,
         );
         results.push({
           step,
@@ -455,7 +451,7 @@ export class AIGuidanceEngine {
   private async executeStepWithAI(
     step: WorkflowStep,
     context: GuidanceContext,
-    variables: Record<string, string>
+    variables: Record<string, string>,
   ): Promise<{
     result: string;
     aiInsights?: string[];
@@ -465,7 +461,7 @@ export class AIGuidanceEngine {
     const aiInsights = await this.generateStepSuggestions(
       step,
       context,
-      variables
+      variables,
     );
 
     return { result, aiInsights };
@@ -473,8 +469,8 @@ export class AIGuidanceEngine {
 
   private async generateStepSuggestions(
     step: WorkflowStep,
-    context: GuidanceContext,
-    variables: Record<string, string>
+    _context: GuidanceContext,
+    _variables: Record<string, string>,
   ): Promise<string[]> {
     const suggestions: string[] = [];
 
@@ -486,12 +482,12 @@ export class AIGuidanceEngine {
       case 'modify':
         suggestions.push('Review existing code patterns before making changes');
         suggestions.push(
-          'Ensure changes maintain consistency with the codebase'
+          'Ensure changes maintain consistency with the codebase',
         );
         break;
       case 'validate':
         suggestions.push(
-          'Run additional quality checks beyond the basic validation'
+          'Run additional quality checks beyond the basic validation',
         );
         break;
       case 'test':
