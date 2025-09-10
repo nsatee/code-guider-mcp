@@ -33,10 +33,8 @@ try {
   
   console.log(`✅ Version updated to ${newVersion}`);
   
-  // 5. Commit and push
-  console.log('📝 Committing changes...');
-  execSync('git add package.json', { stdio: 'inherit' });
-  execSync(`git commit -m "chore: bump version to ${newVersion}"`, { stdio: 'inherit' });
+  // 5. Push changes (version already committed by npm)
+  console.log('📝 Pushing changes...');
   execSync('git push origin main', { stdio: 'inherit' });
   
   // 6. Create and push tag
