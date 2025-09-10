@@ -1,6 +1,6 @@
 {
   "name": "code-guider-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Local MCP server for code guidance and workflow automation",
   "main": "dist/index.js",
   "bin": {
@@ -37,7 +37,16 @@
     "release:major": "bun scripts/release.js major",
     "setup-github": "bun scripts/setup-github.js"
   },
-  "keywords": ["mcp", "code-guidance", "workflow", "automation", "ai", "code-analysis", "typescript", "sqlite"],
+  "keywords": [
+    "mcp",
+    "code-guidance",
+    "workflow",
+    "automation",
+    "ai",
+    "code-analysis",
+    "typescript",
+    "sqlite"
+  ],
   "author": {
     "name": "Nattawod Satee",
     "url": "https://github.com/nsatee"
@@ -55,8 +64,15 @@
     "node": ">=18.0.0",
     "bun": ">=1.0.0"
   },
-  "os": ["darwin", "linux", "win32"],
-  "cpu": ["x64", "arm64"],
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.4.0",
     "@xenova/transformers": "^2.6.2",
