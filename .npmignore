@@ -1,0 +1,63 @@
+# Source files
+src/
+*.ts
+!*.d.ts
+
+# Development files
+tsconfig.json
+jest.config.js
+.eslintrc*
+.prettierrc*
+
+# Build artifacts (keep dist/ for npm)
+*.log
+*.tmp
+
+# Development dependencies
+node_modules/
+.bun/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Test files
+__tests__/
+*.test.ts
+*.spec.ts
+coverage/
+
+# Documentation (keep README.md and LICENSE)
+docs/
+*.md
+!README.md
+
+# Configuration files
+.env*
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Database files (will be created at runtime)
+.guidance/
+*.db
+*.sqlite
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
