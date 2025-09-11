@@ -14,8 +14,9 @@ export interface WorkflowStep {
   id: string;
   name: string;
   description: string;
-  action: 'create' | 'modify' | 'validate' | 'test' | 'document';
+  action: 'create' | 'modify' | 'validate' | 'test' | 'document' | 'analyze';
   template?: string;
+  filePath?: string;
   rules?: string[];
   order: number;
 }
@@ -23,7 +24,7 @@ export interface WorkflowStep {
 export interface CodeTemplate {
   id: string;
   name: string;
-  type: 'component' | 'function' | 'class' | 'interface' | 'test' | 'config';
+  type: 'component' | 'function' | 'class' | 'interface' | 'test' | 'config' | 'api';
   content: string;
   variables: string[];
   description: string;

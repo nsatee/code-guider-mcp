@@ -8,8 +8,16 @@ import {
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import { AIGuidanceEngine } from './ai-guidance-engine';
+import {
+  ANUBIS_MCP_TOOLS,
+  executeAnubisTool,
+  formatAnubisGuidance,
+  formatAnubisMetrics,
+} from './anubis-mcp-integration';
+import { AutoWorkflowDetector } from './auto-workflow-detector';
 import { EnhancedWorkflowEngine } from './enhanced-workflow-engine';
 import { ExecutionTracker } from './execution-tracker';
+import { SampleInitializer } from './init-samples';
 import { MemoryRouter } from './memory-router';
 import { MemoryRuleManager } from './memory-rule-manager';
 import { ProjectManager } from './project-manager';
@@ -21,6 +29,7 @@ import type {
   GuidanceContext,
   MemoryCategory,
   MemoryRule,
+  MemoryRuleTrigger,
   MemoryType,
   ProjectInfo,
   QualityRule,
@@ -28,15 +37,17 @@ import type {
 } from './types';
 
 export class CodeGuidanceMCPServer {
-  private server: Server;
-  private storage: StorageInterface;
-  private guidanceEngine: AIGuidanceEngine;
-  private enhancedWorkflowEngine: EnhancedWorkflowEngine;
-  private roleManager: RoleManager;
-  private executionTracker: ExecutionTracker;
+  private server!: Server;
+  private storage!: StorageInterface;
+  private guidanceEngine!: AIGuidanceEngine;
+  private enhancedWorkflowEngine!: EnhancedWorkflowEngine;
+  private roleManager!: RoleManager;
+  private executionTracker!: ExecutionTracker;
   private projectManager: ProjectManager;
-  private memoryRouter: MemoryRouter;
-  private memoryRuleManager: MemoryRuleManager;
+  private memoryRouter!: MemoryRouter;
+  private memoryRuleManager!: MemoryRuleManager;
+  private autoWorkflowDetector!: AutoWorkflowDetector;
+  private sampleInitializer!: SampleInitializer;
   private projectPath: string | undefined;
   private globalMode: boolean;
 
@@ -45,21 +56,27 @@ export class CodeGuidanceMCPServer {
     this.projectManager = ProjectManager.getInstance();
 
     // Determine project context from environment
-    this.projectPath = process.env.PROJECT_PATH;
-    this.globalMode = process.env.GLOBAL_MODE === 'true';
+    this.projectPath = process.env['PROJECT_PATH'];
+    this.globalMode = process.env['GLOBAL_MODE'] === 'true';
 
+    // Initialize storage and other components asynchronously
+    this.initializeAsync();
+    this.setupServer();
+  }
+
+  private async initializeAsync(): Promise<void> {
     // Initialize storage based on context
     if (this.globalMode) {
-      this.storage = this.projectManager.getGlobalStorage() as StorageInterface;
+      this.storage = (await this.projectManager.getGlobalStorage()) as StorageInterface;
     } else if (this.projectPath) {
-      this.storage = this.projectManager.getProjectStorage(
+      this.storage = (await this.projectManager.getProjectStorage(
         this.projectPath
-      ) as StorageInterface;
+      )) as StorageInterface;
     } else {
       // Fallback to current directory
-      this.storage = this.projectManager.getProjectStorage(
+      this.storage = (await this.projectManager.getProjectStorage(
         process.cwd()
-      ) as StorageInterface;
+      )) as StorageInterface;
     }
 
     this.guidanceEngine = new AIGuidanceEngine(this.storage);
@@ -68,17 +85,19 @@ export class CodeGuidanceMCPServer {
     this.executionTracker = new ExecutionTracker(this.storage);
     this.memoryRouter = new MemoryRouter(
       this.projectManager,
-      this.projectManager.getGlobalStorage()
+      await this.projectManager.getGlobalStorage()
     );
-    this.memoryRuleManager = new MemoryRuleManager(
-      this.memoryRouter,
-      this.projectManager
-    );
+    this.memoryRuleManager = new MemoryRuleManager(this.memoryRouter, this.projectManager);
+    this.autoWorkflowDetector = new AutoWorkflowDetector(this.storage);
+    this.sampleInitializer = new SampleInitializer(this.storage);
 
     // Set project context for memory router
     if (this.projectPath) {
-      this.memoryRouter.setProjectContext(this.projectPath);
+      await this.memoryRouter.setProjectContext(this.projectPath);
     }
+  }
+
+  private setupServer(): void {
     this.server = new Server({
       name: 'code-guidance-mcp',
       version: '1.0.0',
@@ -116,8 +135,7 @@ export class CodeGuidanceMCPServer {
                 },
                 projectPath: {
                   type: 'string',
-                  description:
-                    'Path to project directory (required for execute)',
+                  description: 'Path to project directory (required for execute)',
                 },
                 variables: {
                   type: 'object',
@@ -162,12 +180,7 @@ export class CodeGuidanceMCPServer {
               properties: {
                 analysisType: {
                   type: 'string',
-                  enum: [
-                    'guidance',
-                    'validation',
-                    'ai_analysis',
-                    'similar_code',
-                  ],
+                  enum: ['guidance', 'validation', 'ai_analysis', 'similar_code'],
                   description: 'Type of analysis to perform',
                 },
                 filePath: {
@@ -184,8 +197,7 @@ export class CodeGuidanceMCPServer {
                 },
                 limit: {
                   type: 'number',
-                  description:
-                    'Maximum number of results (optional for similar_code)',
+                  description: 'Maximum number of results (optional for similar_code)',
                 },
               },
               required: ['analysisType', 'filePath', 'projectPath'],
@@ -212,8 +224,7 @@ export class CodeGuidanceMCPServer {
           },
           {
             name: 'semantic_search',
-            description:
-              'Unified semantic search across different content types',
+            description: 'Unified semantic search across different content types',
             inputSchema: {
               type: 'object',
               properties: {
@@ -250,14 +261,7 @@ export class CodeGuidanceMCPServer {
               properties: {
                 action: {
                   type: 'string',
-                  enum: [
-                    'execute',
-                    'execute_ai',
-                    'execute_roles',
-                    'status',
-                    'pause',
-                    'resume',
-                  ],
+                  enum: ['execute', 'execute_ai', 'execute_roles', 'status', 'pause', 'resume'],
                   description: 'Action to perform',
                 },
                 workflowId: {
@@ -278,8 +282,7 @@ export class CodeGuidanceMCPServer {
                 },
                 executionId: {
                   type: 'string',
-                  description:
-                    'ID of execution (required for status/pause/resume)',
+                  description: 'ID of execution (required for status/pause/resume)',
                 },
                 reason: {
                   type: 'string',
@@ -333,18 +336,15 @@ export class CodeGuidanceMCPServer {
                 },
                 transformation: {
                   type: 'string',
-                  description:
-                    'Transformation description (required for other types)',
+                  description: 'Transformation description (required for other types)',
                 },
                 source: {
                   type: 'string',
-                  description:
-                    'Source format (optional for data, default: file-based)',
+                  description: 'Source format (optional for data, default: file-based)',
                 },
                 target: {
                   type: 'string',
-                  description:
-                    'Target format (optional for data, default: hybrid-storage)',
+                  description: 'Target format (optional for data, default: hybrid-storage)',
                 },
                 filters: {
                   type: 'object',
@@ -371,13 +371,11 @@ export class CodeGuidanceMCPServer {
                 },
                 projectPath: {
                   type: 'string',
-                  description:
-                    'Path to project directory (optional, defaults to current)',
+                  description: 'Path to project directory (optional, defaults to current)',
                 },
                 projectType: {
                   type: 'string',
-                  description:
-                    'Type of project (optional for init, auto-detected for auto_init)',
+                  description: 'Type of project (optional for init, auto-detected for auto_init)',
                 },
               },
               required: ['action'],
@@ -448,8 +446,7 @@ export class CodeGuidanceMCPServer {
                 },
                 limit: {
                   type: 'number',
-                  description:
-                    'Maximum number of results (optional for search/list)',
+                  description: 'Maximum number of results (optional for search/list)',
                 },
                 id: {
                   type: 'string',
@@ -472,13 +469,11 @@ export class CodeGuidanceMCPServer {
                 },
                 request: {
                   type: 'string',
-                  description:
-                    'Original request (required for enhance_request)',
+                  description: 'Original request (required for enhance_request)',
                 },
                 context: {
                   type: 'object',
-                  description:
-                    'Context information (required for enhance_request)',
+                  description: 'Context information (required for enhance_request)',
                 },
                 projectPath: {
                   type: 'string',
@@ -537,37 +532,88 @@ export class CodeGuidanceMCPServer {
               required: ['executionId', 'toRoleId'],
             },
           },
+          {
+            name: 'auto_detect_workflow',
+            description:
+              'Automatically detect and suggest workflows based on natural language input',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                userInput: {
+                  type: 'string',
+                  description: 'Natural language input to analyze for workflow triggers',
+                },
+                projectPath: {
+                  type: 'string',
+                  description: 'Path to project directory (optional)',
+                },
+                currentFile: {
+                  type: 'string',
+                  description: 'Current file being worked on (optional)',
+                },
+                projectType: {
+                  type: 'string',
+                  description: 'Type of project (optional)',
+                },
+                autoExecute: {
+                  type: 'boolean',
+                  description:
+                    'Whether to automatically execute detected workflows (default: false)',
+                },
+              },
+              required: ['userInput'],
+            },
+          },
+          {
+            name: 'init_samples',
+            description: 'Initialize sample workflows and templates for auto-workflow detection',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                action: {
+                  type: 'string',
+                  enum: ['init', 'status', 'check'],
+                  description:
+                    'Action to perform: init (initialize samples), status (get status), check (check if initialized)',
+                },
+              },
+              required: ['action'],
+            },
+          },
+          // Anubis MCP Tools - Inspired by https://github.com/Hive-Academy/Anubis-MCP
+          ...ANUBIS_MCP_TOOLS,
         ] as Tool[],
       };
     });
 
     // Handle tool calls
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: args } = request.params;
+    this.server.setRequestHandler(
+      CallToolRequestSchema,
+      async (request): Promise<{ content: TextContent[]; isError?: boolean }> => {
+        const { name, arguments: args } = request.params;
 
-      try {
-        return await this.handleToolCall(name, args || {});
-      } catch (error) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Error: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            } as TextContent,
-          ],
-          isError: true,
-        };
+        try {
+          return (await this.handleToolCall(name, args || {})) as {
+            content: TextContent[];
+            isError?: boolean;
+          };
+        } catch (error) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Error: ${error instanceof Error ? error.message : String(error)}`,
+              } as TextContent,
+            ],
+            isError: true,
+          };
+        }
       }
-    });
+    );
   }
 
   private async handleToolCall(name: string, args: Record<string, unknown>) {
-    const toolHandlers: Record<
-      string,
-      (args: Record<string, unknown>) => Promise<unknown>
-    > = {
+    const toolHandlers: Record<string, (args: Record<string, unknown>) => Promise<unknown>> = {
       manage_workflows: this.handleManageWorkflows.bind(this),
       manage_templates: this.handleManageTemplates.bind(this),
       analyze_code: this.handleAnalyzeCode.bind(this),
@@ -581,6 +627,19 @@ export class CodeGuidanceMCPServer {
       manage_memory_rules: this.handleManageMemoryRules.bind(this),
       get_execution_metrics: this.handleGetExecutionMetrics.bind(this),
       transition_role: this.handleTransitionRole.bind(this),
+      auto_detect_workflow: this.handleAutoDetectWorkflow.bind(this),
+      init_samples: this.handleInitSamples.bind(this),
+      // Anubis MCP Tool Handlers
+      start_workflow: this.handleAnubisStartWorkflow.bind(this),
+      get_guidance: this.handleAnubisGetGuidance.bind(this),
+      report_completion: this.handleAnubisReportCompletion.bind(this),
+      transition_role_workflow: this.handleAnubisTransitionRole.bind(this),
+      get_metrics: this.handleAnubisGetMetrics.bind(this),
+      list_workflows: this.handleAnubisListWorkflows.bind(this),
+      get_workflow: this.handleAnubisGetWorkflow.bind(this),
+      pause_execution: this.handleAnubisPauseExecution.bind(this),
+      resume_execution: this.handleAnubisResumeExecution.bind(this),
+      list_roles: this.handleAnubisListRoles.bind(this),
     };
 
     const handler = toolHandlers[name];
@@ -601,15 +660,11 @@ export class CodeGuidanceMCPServer {
     const workflowList = workflows
       .map((w) => {
         if ('name' in w) {
-          return `- **${w.name}** (${w.id})\n  ${
-            w.description
-          }\n  Tags: ${w.tags.join(', ')}`;
+          return `- **${w.name}** (${w.id})\n  ${w.description}\n  Tags: ${w.tags.join(', ')}`;
         }
         return `- **${w.metadata.name || w.id}** (${
           w.id
-        })\n  ${w.content.substring(0, 100)}...\n  Similarity: ${(
-          w.similarity * 100
-        ).toFixed(1)}%`;
+        })\n  ${w.content.substring(0, 100)}...\n  Similarity: ${(w.similarity * 100).toFixed(1)}%`;
       })
       .join('\n\n');
 
@@ -639,14 +694,10 @@ export class CodeGuidanceMCPServer {
     }
 
     const steps = workflow.steps
-      .map(
-        (s) => `${s.order}. **${s.name}** (${s.action})\n   ${s.description}`
-      )
+      .map((s) => `${s.order}. **${s.name}** (${s.action})\n   ${s.description}`)
       .join('\n');
 
-    const qualityChecks = workflow.qualityChecks
-      .map((q) => `- ${q}`)
-      .join('\n');
+    const qualityChecks = workflow.qualityChecks.map((q) => `- ${q}`).join('\n');
 
     return {
       content: [
@@ -681,8 +732,7 @@ export class CodeGuidanceMCPServer {
       projectPath: args.projectPath as string,
       projectType: (args.projectType as string) || 'general',
       frameworks: (args.frameworks as string[]) || [],
-      qualityLevel:
-        (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
+      qualityLevel: (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
     const result = await this.guidanceEngine.executeWorkflowWithAI(
@@ -727,9 +777,7 @@ export class CodeGuidanceMCPServer {
         }
         return `- **${t.metadata.name || t.id}** (${t.id})\n  Type: ${
           t.metadata.type || 'unknown'
-        }\n  ${t.content.substring(0, 100)}...\n  Similarity: ${(
-          t.similarity * 100
-        ).toFixed(1)}%`;
+        }\n  ${t.content.substring(0, 100)}...\n  Similarity: ${(t.similarity * 100).toFixed(1)}%`;
       })
       .join('\n\n');
 
@@ -767,29 +815,18 @@ export class CodeGuidanceMCPServer {
       currentFile: args.filePath as string,
       projectType: (args.projectType as string) || 'general',
       frameworks: (args.frameworks as string[]) || [],
-      qualityLevel:
-        (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
+      qualityLevel: (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
-    const analysis = await this.guidanceEngine.analyzeCode(
-      args.filePath as string,
-      context
-    );
+    const analysis = await this.guidanceEngine.analyzeCode(args.filePath as string, context);
 
     const suggestions = analysis.suggestions.map((s) => `- ${s}`).join('\n');
-    const qualityIssues = analysis.qualityIssues
-      .map((q) => `- ${q}`)
-      .join('\n');
+    const qualityIssues = analysis.qualityIssues.map((q) => `- ${q}`).join('\n');
     const suggestedWorkflows = analysis.suggestedWorkflows
-      .map(
-        (w) =>
-          `- **${w.metadata.name || w.id}**: ${w.content.substring(0, 100)}...`
-      )
+      .map((w) => `- **${w.metadata.name || w.id}**: ${w.content.substring(0, 100)}...`)
       .join('\n');
     const patterns = analysis.patterns.map((p) => `- ${p}`).join('\n');
-    const recommendations = analysis.recommendations
-      .map((r) => `- ${r}`)
-      .join('\n');
+    const recommendations = analysis.recommendations.map((r) => `- ${r}`).join('\n');
 
     return {
       content: [
@@ -797,9 +834,7 @@ export class CodeGuidanceMCPServer {
           type: 'text',
           text:
             `**AI-Powered Guidance for ${args.filePath}**\n\n` +
-            `**Complexity Score:** ${analysis.complexityScore.toFixed(
-              1
-            )}/100\n\n` +
+            `**Complexity Score:** ${analysis.complexityScore.toFixed(1)}/100\n\n` +
             `**Detected Patterns:**\n${patterns}\n\n` +
             `**Suggestions:**\n${suggestions || 'None'}\n\n` +
             `**Quality Issues:**\n${qualityIssues || 'None'}\n\n` +
@@ -818,14 +853,10 @@ export class CodeGuidanceMCPServer {
       currentFile: args.filePath as string,
       projectType: (args.projectType as string) || 'general',
       frameworks: (args.frameworks as string[]) || [],
-      qualityLevel:
-        (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
+      qualityLevel: (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
-    const analysis = await this.guidanceEngine.analyzeCode(
-      args.filePath as string,
-      context
-    );
+    const analysis = await this.guidanceEngine.analyzeCode(args.filePath as string, context);
 
     return {
       content: [
@@ -833,19 +864,12 @@ export class CodeGuidanceMCPServer {
           type: 'text',
           text:
             `**AI Code Validation Results for ${args.filePath}**\n\n` +
-            `**Quality Score:** ${analysis.complexityScore.toFixed(
-              1
-            )}/100\n\n` +
+            `**Quality Score:** ${analysis.complexityScore.toFixed(1)}/100\n\n` +
             `**Quality Issues Found:**\n${
-              analysis.qualityIssues.map((q) => `- ${q}`).join('\n') ||
-              'None - Code looks good!'
+              analysis.qualityIssues.map((q) => `- ${q}`).join('\n') || 'None - Code looks good!'
             }\n\n` +
-            `**Patterns Detected:**\n${analysis.patterns
-              .map((p) => `- ${p}`)
-              .join('\n')}\n\n` +
-            `**Recommendations:**\n${analysis.recommendations
-              .map((r) => `- ${r}`)
-              .join('\n')}`,
+            `**Patterns Detected:**\n${analysis.patterns.map((p) => `- ${p}`).join('\n')}\n\n` +
+            `**Recommendations:**\n${analysis.recommendations.map((r) => `- ${r}`).join('\n')}`,
         } as TextContent,
       ],
     };
@@ -857,10 +881,7 @@ export class CodeGuidanceMCPServer {
     const rules = await this.storage.listQualityRules();
 
     const ruleList = rules
-      .map(
-        (r) =>
-          `- **${r.name}** (${r.severity})\n  Type: ${r.type}\n  ${r.description}`
-      )
+      .map((r) => `- **${r.name}** (${r.severity})\n  Type: ${r.type}\n  ${r.description}`)
       .join('\n\n');
 
     return {
@@ -897,22 +918,16 @@ export class CodeGuidanceMCPServer {
       currentFile: args.filePath as string,
       projectType: (args.projectType as string) || 'general',
       frameworks: (args.frameworks as string[]) || [],
-      qualityLevel:
-        (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
+      qualityLevel: (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
-    const analysis = await this.guidanceEngine.analyzeCode(
-      args.filePath as string,
-      context
-    );
+    const analysis = await this.guidanceEngine.analyzeCode(args.filePath as string, context);
 
     const suggestions = analysis.suggestions.map((s) => `- ${s}`).join('\n');
     const similarCode = analysis.similarCode
       .map(
         (sc) =>
-          `- **${sc.metadata.filePath || sc.id}** (${(
-            sc.similarity * 100
-          ).toFixed(1)}% similar)`
+          `- **${sc.metadata.filePath || sc.id}** (${(sc.similarity * 100).toFixed(1)}% similar)`
       )
       .join('\n');
     const suggestedWorkflows = analysis.suggestedWorkflows
@@ -931,13 +946,9 @@ export class CodeGuidanceMCPServer {
           )}% match): ${st.content.substring(0, 100)}...`
       )
       .join('\n');
-    const qualityIssues = analysis.qualityIssues
-      .map((qi) => `- ${qi}`)
-      .join('\n');
+    const qualityIssues = analysis.qualityIssues.map((qi) => `- ${qi}`).join('\n');
     const patterns = analysis.patterns.map((p) => `- ${p}`).join('\n');
-    const recommendations = analysis.recommendations
-      .map((r) => `- ${r}`)
-      .join('\n');
+    const recommendations = analysis.recommendations.map((r) => `- ${r}`).join('\n');
 
     return {
       content: [
@@ -945,9 +956,7 @@ export class CodeGuidanceMCPServer {
           type: 'text',
           text:
             `**AI Code Analysis for ${args.filePath}**\n\n` +
-            `**Complexity Score:** ${analysis.complexityScore.toFixed(
-              1
-            )}/100\n\n` +
+            `**Complexity Score:** ${analysis.complexityScore.toFixed(1)}/100\n\n` +
             `**Detected Patterns:**\n${patterns}\n\n` +
             `**Suggestions:**\n${suggestions}\n\n` +
             `**Quality Issues:**\n${qualityIssues}\n\n` +
@@ -999,9 +1008,7 @@ export class CodeGuidanceMCPServer {
     const templateList = results
       .map(
         (r) =>
-          `- **${r.metadata.name || r.id}** (${(r.similarity * 100).toFixed(
-            1
-          )}% match)\n  Type: ${
+          `- **${r.metadata.name || r.id}** (${(r.similarity * 100).toFixed(1)}% match)\n  Type: ${
             r.metadata.type || 'unknown'
           }\n  ${r.content.substring(0, 200)}...`
       )
@@ -1025,20 +1032,16 @@ export class CodeGuidanceMCPServer {
       currentFile: args.filePath as string,
       projectType: (args.projectType as string) || 'general',
       frameworks: (args.frameworks as string[]) || [],
-      qualityLevel:
-        (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
+      qualityLevel: (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
-    const analysis = await this.guidanceEngine.analyzeCode(
-      args.filePath as string,
-      context
-    );
+    const analysis = await this.guidanceEngine.analyzeCode(args.filePath as string, context);
     const similarCode = analysis.similarCode
       .map(
         (sc) =>
-          `- **${sc.metadata.filePath || sc.id}** (${(
-            sc.similarity * 100
-          ).toFixed(1)}% similar)\n  ${sc.content.substring(0, 300)}...`
+          `- **${sc.metadata.filePath || sc.id}** (${(sc.similarity * 100).toFixed(
+            1
+          )}% similar)\n  ${sc.content.substring(0, 300)}...`
       )
       .join('\n\n');
 
@@ -1059,8 +1062,7 @@ export class CodeGuidanceMCPServer {
       projectPath: args.projectPath as string,
       projectType: (args.projectType as string) || 'general',
       frameworks: (args.frameworks as string[]) || [],
-      qualityLevel:
-        (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
+      qualityLevel: (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
     const result = await this.guidanceEngine.executeWorkflowWithAI(
@@ -1078,9 +1080,7 @@ export class CodeGuidanceMCPServer {
       )
       .join('\n\n');
 
-    const aiInsights = result.aiInsights
-      .map((insight) => `- ${insight}`)
-      .join('\n');
+    const aiInsights = result.aiInsights.map((insight) => `- ${insight}`).join('\n');
     const status = result.success
       ? '✅ Workflow completed successfully'
       : '❌ Workflow completed with errors';
@@ -1104,8 +1104,7 @@ export class CodeGuidanceMCPServer {
       projectPath: args.projectPath as string,
       projectType: (args.projectType as string) || 'general',
       frameworks: (args.frameworks as string[]) || [],
-      qualityLevel:
-        (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
+      qualityLevel: (args.qualityLevel as 'strict' | 'moderate' | 'relaxed') || 'moderate',
     };
 
     const result = await this.enhancedWorkflowEngine.executeWorkflowWithRoles(
@@ -1124,23 +1123,17 @@ export class CodeGuidanceMCPServer {
       )
       .join('\n\n');
 
-    const aiInsights = result.aiInsights
-      .map((insight) => `- ${insight}`)
-      .join('\n');
+    const aiInsights = result.aiInsights.map((insight) => `- ${insight}`).join('\n');
     const status = result.success
       ? '✅ Workflow completed successfully'
       : '❌ Workflow completed with errors';
-    const nextRole = result.nextRole
-      ? `\n\n**Next Role:** ${result.nextRole}`
-      : '';
+    const nextRole = result.nextRole ? `\n\n**Next Role:** ${result.nextRole}` : '';
 
     return {
       content: [
         {
           type: 'text',
-          text: `${status}\n\n**Execution ID:** ${
-            result.executionId
-          }\n**Current Role:** ${
+          text: `${status}\n\n**Execution ID:** ${result.executionId}\n**Current Role:** ${
             result.currentRole
           }${nextRole}\n\n**Execution Results:**\n${stepResults}\n\n**Metrics:**\n- Files Created: ${
             result.metrics.filesCreated
@@ -1211,9 +1204,7 @@ export class CodeGuidanceMCPServer {
   private async handleGetExecutionStatus(
     args: Record<string, unknown>
   ): Promise<{ content: TextContent[] }> {
-    const execution = await this.executionTracker.getExecution(
-      args.executionId as string
-    );
+    const execution = await this.executionTracker.getExecution(args.executionId as string);
     if (!execution) {
       return {
         content: [
@@ -1261,9 +1252,7 @@ export class CodeGuidanceMCPServer {
   private async handleTransitionRole(
     args: Record<string, unknown>
   ): Promise<{ content: TextContent[] }> {
-    const execution = await this.executionTracker.getExecution(
-      args.executionId as string
-    );
+    const execution = await this.executionTracker.getExecution(args.executionId as string);
     if (!execution) {
       return {
         content: [
@@ -1275,10 +1264,7 @@ export class CodeGuidanceMCPServer {
       };
     }
 
-    const validation = this.roleManager.validateRoleTransition(
-      execution,
-      args.toRoleId as string
-    );
+    const validation = this.roleManager.validateRoleTransition(execution, args.toRoleId as string);
     if (!validation.valid) {
       return {
         content: [
@@ -1286,9 +1272,7 @@ export class CodeGuidanceMCPServer {
             type: 'text',
             text: `Cannot transition to role ${args.toRoleId}: ${
               validation.reason
-            }\n\nRequirements: ${
-              validation.requirements?.join(', ') || 'None'
-            }`,
+            }\n\nRequirements: ${validation.requirements?.join(', ') || 'None'}`,
           } as TextContent,
         ],
       };
@@ -1327,6 +1311,205 @@ export class CodeGuidanceMCPServer {
     };
   }
 
+  private async handleAutoDetectWorkflow(
+    args: Record<string, unknown>
+  ): Promise<{ content: TextContent[] }> {
+    try {
+      const userInput = args.userInput as string;
+      const projectPath = (args.projectPath as string) || this.projectPath || process.cwd();
+      const currentFile = args.currentFile as string;
+      const projectType = args.projectType as string;
+      const autoExecute = Boolean(args.autoExecute);
+
+      // Analyze the input for workflow triggers
+      const result = await this.autoWorkflowDetector.analyzeInput(userInput, {
+        projectPath,
+        currentFile,
+        projectType,
+      });
+
+      if (!result.detected) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `🔍 **No workflow patterns detected**\n\n**Input:** "${userInput}"\n\n**Suggestions:**\n${result.suggestions
+                .map((s) => `- ${s}`)
+                .join(
+                  '\n'
+                )}\n\n**Try these patterns:**\n- "build a button component"\n- "create a form"\n- "setup authentication"\n- "write unit tests"\n- "add styling"`,
+            } as TextContent,
+          ],
+        };
+      }
+
+      // Format detected triggers
+      const triggerList = result.triggers
+        .map((trigger, index) => {
+          const status = trigger.autoExecute ? '🚀 AUTO-EXECUTE' : '💡 SUGGESTED';
+          return `${index + 1}. **${trigger.name}** (${(trigger.confidence * 100).toFixed(
+            0
+          )}% confidence) ${status}\n   Workflow: ${
+            trigger.workflowId
+          }\n   Variables: ${JSON.stringify(
+            trigger.variables
+          )}\n   Reasoning: ${trigger.reasoning}`;
+        })
+        .join('\n\n');
+
+      // Auto-execute workflows if requested
+      let executionResults = '';
+      if (autoExecute && result.autoExecuted.length > 0) {
+        executionResults = '\n\n**🚀 Auto-Execution Results:**\n';
+        for (const trigger of result.autoExecuted) {
+          try {
+            const executionResult = await this.autoWorkflowDetector.executeWorkflow(trigger, {
+              projectPath,
+              currentFile,
+              projectType,
+            });
+            executionResults += `✅ **${trigger.name}**: ${executionResult.message}\n`;
+          } catch (error) {
+            executionResults += `❌ **${trigger.name}**: Failed to execute - ${error}\n`;
+          }
+        }
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🎯 **Workflow Detection Results**\n\n**Input:** "${userInput}"\n\n**Detected Triggers (${
+              result.triggers.length
+            }):**\n\n${triggerList}${executionResults}\n\n**Suggestions:**\n${result.suggestions
+              .map((s) => `- ${s}`)
+              .join('\n')}`,
+          } as TextContent,
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ **Error in auto-workflow detection:** ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          } as TextContent,
+        ],
+      };
+    }
+  }
+
+  private async handleInitSamples(
+    args: Record<string, unknown>
+  ): Promise<{ content: TextContent[] }> {
+    try {
+      const action = args.action as string;
+
+      switch (action) {
+        case 'init': {
+          const result = await this.sampleInitializer.initializeSamples();
+
+          if (result.errors.length > 0) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `⚠️ **Sample Initialization Completed with Errors**\n\n**Results:**\n- Workflows: ${
+                    result.workflows
+                  }\n- Templates: ${result.templates}\n\n**Errors:**\n${result.errors
+                    .map((e) => `- ${e}`)
+                    .join(
+                      '\n'
+                    )}\n\n**Next Steps:**\n- Use \`auto_detect_workflow\` to test workflow detection\n- Try: "build a button component" or "create a form"`,
+                } as TextContent,
+              ],
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `✅ **Sample Initialization Completed Successfully**\n\n**Results:**\n- Workflows: ${result.workflows}\n- Templates: ${result.templates}\n\n**Available Sample Workflows:**\n- React Button Component\n- React Form Component\n- React Modal Component\n- Express API Endpoint\n- Express CRUD Operations\n- Jest Unit Tests\n- Tailwind CSS Styling\n\n**Available Sample Templates:**\n- React Button Component\n- React Form Component\n- React Modal Component\n- Express API Route\n- Jest Unit Test\n\n**Next Steps:**\n- Use \`auto_detect_workflow\` to test workflow detection\n- Try: "build a button component" or "create a form"`,
+              } as TextContent,
+            ],
+          };
+        }
+
+        case 'status': {
+          const status = await this.sampleInitializer.getStatus();
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `📊 **Sample Initialization Status**\n\n**Initialized:** ${
+                  status.initialized ? '✅ Yes' : '❌ No'
+                }\n**Total Workflows:** ${status.workflowCount}\n**Total Templates:** ${
+                  status.templateCount
+                }\n\n**Sample Workflows (${
+                  status.sampleWorkflows.length
+                }):**\n${status.sampleWorkflows
+                  .map((w) => `- ${w}`)
+                  .join('\n')}\n\n**Sample Templates (${
+                  status.sampleTemplates.length
+                }):**\n${status.sampleTemplates
+                  .map((t) => `- ${t}`)
+                  .join('\n')}\n\n**Recommendation:** ${
+                  status.initialized
+                    ? 'Samples are ready for use!'
+                    : 'Run init_samples with action="init" to initialize samples.'
+                }`,
+              } as TextContent,
+            ],
+          };
+        }
+
+        case 'check': {
+          const initialized = await this.sampleInitializer.areSamplesInitialized();
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `🔍 **Sample Initialization Check**\n\n**Status:** ${
+                  initialized ? '✅ Samples are initialized' : '❌ Samples not initialized'
+                }\n\n**Recommendation:** ${
+                  initialized
+                    ? 'You can start using auto-workflow detection!'
+                    : 'Run init_samples with action="init" to initialize samples first.'
+                }`,
+              } as TextContent,
+            ],
+          };
+        }
+
+        default:
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `❌ **Invalid action:** ${action}\n\n**Valid actions:**\n- init: Initialize sample workflows and templates\n- status: Get detailed status of samples\n- check: Quick check if samples are initialized`,
+              } as TextContent,
+            ],
+          };
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ **Error in sample initialization:** ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          } as TextContent,
+        ],
+      };
+    }
+  }
+
   private async handlePauseExecution(
     args: Record<string, unknown>
   ): Promise<{ content: TextContent[] }> {
@@ -1363,9 +1546,7 @@ export class CodeGuidanceMCPServer {
   private async handleResumeExecution(
     args: Record<string, unknown>
   ): Promise<{ content: TextContent[] }> {
-    const execution = await this.executionTracker.resumeExecution(
-      args.executionId as string
-    );
+    const execution = await this.executionTracker.resumeExecution(args.executionId as string);
 
     if (!execution) {
       return {
@@ -1393,9 +1574,7 @@ export class CodeGuidanceMCPServer {
   private async handleGetExecutionMetrics(
     args: Record<string, unknown>
   ): Promise<{ content: TextContent[] }> {
-    const metrics = await this.executionTracker.getExecutionMetrics(
-      args.executionId as string
-    );
+    const metrics = await this.executionTracker.getExecutionMetrics(args.executionId as string);
 
     if (!metrics) {
       return {
@@ -1412,9 +1591,7 @@ export class CodeGuidanceMCPServer {
       content: [
         {
           type: 'text',
-          text: `**Execution Metrics for ${
-            args.executionId
-          }**\n\n**Progress:**\n- Total Steps: ${
+          text: `**Execution Metrics for ${args.executionId}**\n\n**Progress:**\n- Total Steps: ${
             metrics.totalSteps
           }\n- Completed Steps: ${metrics.completedSteps}\n- Success Rate: ${(
             metrics.successRate * 100
@@ -1434,12 +1611,7 @@ export class CodeGuidanceMCPServer {
   private async handleAIMigrateData(
     args: Record<string, unknown>
   ): Promise<{ content: TextContent[] }> {
-    const {
-      instruction,
-      source = 'file-based',
-      target = 'hybrid-storage',
-      options = {},
-    } = args;
+    const { instruction, source = 'file-based', target = 'hybrid-storage', options = {} } = args;
     const optionsObj = options as Record<string, unknown>;
     const {
       dryRun = false,
@@ -1526,11 +1698,7 @@ export class CodeGuidanceMCPServer {
       let filteredWorkflows = workflows;
 
       // Apply filters
-      if (
-        filtersObj.tags &&
-        Array.isArray(filtersObj.tags) &&
-        filtersObj.tags.length > 0
-      ) {
+      if (filtersObj.tags && Array.isArray(filtersObj.tags) && filtersObj.tags.length > 0) {
         const tags = filtersObj.tags as string[];
         filteredWorkflows = filteredWorkflows.filter((w) =>
           w.tags.some((tag) => tags.includes(tag))
@@ -1538,15 +1706,11 @@ export class CodeGuidanceMCPServer {
       }
       if (filtersObj.namePattern) {
         const pattern = new RegExp(filtersObj.namePattern as string, 'i');
-        filteredWorkflows = filteredWorkflows.filter((w) =>
-          pattern.test(w.name)
-        );
+        filteredWorkflows = filteredWorkflows.filter((w) => pattern.test(w.name));
       }
       if (filtersObj.createdAfter) {
         const cutoffDate = new Date(filtersObj.createdAfter as string);
-        filteredWorkflows = filteredWorkflows.filter(
-          (w) => new Date(w.createdAt) > cutoffDate
-        );
+        filteredWorkflows = filteredWorkflows.filter((w) => new Date(w.createdAt) > cutoffDate);
       }
 
       if (dryRun) {
@@ -1593,9 +1757,7 @@ export class CodeGuidanceMCPServer {
               transformedWorkflows.length
             }\n\n**Changes made:**\n${transformedWorkflows
               .map((w) => `- ${w.name}: ${w.description}`)
-              .join(
-                '\n'
-              )}\n\n*All workflows have been successfully migrated and validated.*`,
+              .join('\n')}\n\n*All workflows have been successfully migrated and validated.*`,
           } as TextContent,
         ],
       };
@@ -1636,15 +1798,9 @@ export class CodeGuidanceMCPServer {
 
       // Apply filters
       if (filtersObj.type) {
-        filteredTemplates = filteredTemplates.filter(
-          (t) => t.type === filtersObj.type
-        );
+        filteredTemplates = filteredTemplates.filter((t) => t.type === filtersObj.type);
       }
-      if (
-        filtersObj.tags &&
-        Array.isArray(filtersObj.tags) &&
-        filtersObj.tags.length > 0
-      ) {
+      if (filtersObj.tags && Array.isArray(filtersObj.tags) && filtersObj.tags.length > 0) {
         const tags = filtersObj.tags as string[];
         filteredTemplates = filteredTemplates.filter((t) =>
           t.tags.some((tag) => tags.includes(tag))
@@ -1695,9 +1851,7 @@ export class CodeGuidanceMCPServer {
               transformedTemplates.length
             }\n\n**Changes made:**\n${transformedTemplates
               .map((t) => `- ${t.name} (${t.type}): ${t.description}`)
-              .join(
-                '\n'
-              )}\n\n*All templates have been successfully migrated and validated.*`,
+              .join('\n')}\n\n*All templates have been successfully migrated and validated.*`,
           } as TextContent,
         ],
       };
@@ -1741,9 +1895,7 @@ export class CodeGuidanceMCPServer {
         filteredRules = filteredRules.filter((r) => r.type === filtersObj.type);
       }
       if (filtersObj.severity) {
-        filteredRules = filteredRules.filter(
-          (r) => r.severity === filtersObj.severity
-        );
+        filteredRules = filteredRules.filter((r) => r.severity === filtersObj.severity);
       }
 
       if (dryRun) {
@@ -1789,12 +1941,8 @@ export class CodeGuidanceMCPServer {
             text: `✅ **Quality Rules Migration Completed**\n\n**Transformation:** ${transformation}\n**Rules migrated:** ${
               transformedRules.length
             }\n\n**Changes made:**\n${transformedRules
-              .map(
-                (r) => `- ${r.name} (${r.type}/${r.severity}): ${r.description}`
-              )
-              .join(
-                '\n'
-              )}\n\n*All quality rules have been successfully migrated and validated.*`,
+              .map((r) => `- ${r.name} (${r.type}/${r.severity}): ${r.description}`)
+              .join('\n')}\n\n*All quality rules have been successfully migrated and validated.*`,
           } as TextContent,
         ],
       };
@@ -1813,11 +1961,7 @@ export class CodeGuidanceMCPServer {
   }
 
   // Helper methods for AI migration
-  private async generateMigrationPlan(
-    instruction: string,
-    source: string,
-    target: string
-  ) {
+  private async generateMigrationPlan(instruction: string, source: string, target: string) {
     // AI-powered migration plan generation
     const plan = {
       preview: `Based on your instruction "${instruction}", I will:\n1. Analyze existing ${source} data\n2. Transform data to ${target} format\n3. Validate transformed data\n4. Apply changes with backup`,
@@ -1865,10 +2009,7 @@ export class CodeGuidanceMCPServer {
     return backupPath;
   }
 
-  private async executeMigration(
-    plan: Record<string, unknown>,
-    _validate: boolean
-  ) {
+  private async executeMigration(plan: Record<string, unknown>, _validate: boolean) {
     const startTime = Date.now();
 
     // Simulate migration execution
@@ -1877,32 +2018,21 @@ export class CodeGuidanceMCPServer {
     const duration = Date.now() - startTime;
 
     return {
-      summary:
-        'Migration completed successfully with all data transformed and validated.',
+      summary: 'Migration completed successfully with all data transformed and validated.',
       itemCount: plan.itemCount as number,
       duration: `${Math.round(duration / 1000)}s`,
-      nextSteps: [
-        'Review migrated data',
-        'Test functionality',
-        'Update documentation if needed',
-      ],
+      nextSteps: ['Review migrated data', 'Test functionality', 'Update documentation if needed'],
     };
   }
 
-  private async transformWorkflows(
-    workflows: Workflow[],
-    transformation: string
-  ) {
+  private async transformWorkflows(workflows: Workflow[], transformation: string) {
     // AI-powered workflow transformation
     return workflows.map((workflow) => {
       const transformed = { ...workflow };
 
       // Apply transformation based on instruction
       if (transformation.includes('add new quality checks')) {
-        transformed.qualityChecks = [
-          ...workflow.qualityChecks,
-          'AI-generated quality check',
-        ];
+        transformed.qualityChecks = [...workflow.qualityChecks, 'AI-generated quality check'];
       }
       if (transformation.includes('update step format')) {
         transformed.steps = workflow.steps.map((step) => ({
@@ -1916,10 +2046,7 @@ export class CodeGuidanceMCPServer {
     });
   }
 
-  private async transformTemplates(
-    templates: CodeTemplate[],
-    transformation: string
-  ) {
+  private async transformTemplates(templates: CodeTemplate[], transformation: string) {
     // AI-powered template transformation
     return templates.map((template) => {
       const transformed = { ...template };
@@ -1939,10 +2066,7 @@ export class CodeGuidanceMCPServer {
     });
   }
 
-  private async transformQualityRules(
-    rules: QualityRule[],
-    transformation: string
-  ) {
+  private async transformQualityRules(rules: QualityRule[], transformation: string) {
     // AI-powered quality rules transformation
     return rules.map((rule) => {
       const transformed = { ...rule };
@@ -1954,9 +2078,7 @@ export class CodeGuidanceMCPServer {
         }
       }
       if (transformation.includes('add new rule patterns')) {
-        transformed.pattern = rule.pattern
-          ? `${rule.pattern}|new-pattern`
-          : 'new-pattern';
+        transformed.pattern = rule.pattern ? `${rule.pattern}|new-pattern` : 'new-pattern';
       }
 
       transformed.updatedAt = new Date().toISOString();
@@ -2031,9 +2153,7 @@ export class CodeGuidanceMCPServer {
     const projectPath = (args.projectPath as string) || process.cwd();
 
     try {
-      const projectInfo = await this.projectManager.initializeProject(
-        projectPath
-      );
+      const projectInfo = await this.projectManager.initializeProject(projectPath);
 
       return {
         content: [
@@ -2045,15 +2165,11 @@ export class CodeGuidanceMCPServer {
               `**Type:** ${projectInfo.type}\n` +
               `**Path:** ${projectInfo.path}\n\n` +
               `**🔧 Tech Stack Detected:**\n` +
-              `**Frameworks:** ${
-                projectInfo.frameworks.join(', ') || 'None'
-              }\n` +
+              `**Frameworks:** ${projectInfo.frameworks.join(', ') || 'None'}\n` +
               `**Languages:** ${projectInfo.languages.join(', ') || 'None'}\n` +
               `**Tools:** ${projectInfo.tools.join(', ') || 'None'}\n` +
               `**Databases:** ${projectInfo.databases.join(', ') || 'None'}\n` +
-              `**Deployment:** ${
-                projectInfo.deployment.join(', ') || 'None'
-              }\n\n` +
+              `**Deployment:** ${projectInfo.deployment.join(', ') || 'None'}\n\n` +
               `💡 Global templates and workflows have been synced to this project.\n` +
               `🎯 Project-specific memory rules have been initialized based on your tech stack.`,
           } as TextContent,
@@ -2105,16 +2221,10 @@ export class CodeGuidanceMCPServer {
             `**Languages:** ${projectInfo.languages.join(', ') || 'None'}\n` +
             `**Tools:** ${projectInfo.tools.join(', ') || 'None'}\n` +
             `**Databases:** ${projectInfo.databases.join(', ') || 'None'}\n` +
-            `**Deployment:** ${
-              projectInfo.deployment.join(', ') || 'None'
-            }\n\n` +
+            `**Deployment:** ${projectInfo.deployment.join(', ') || 'None'}\n\n` +
             `**📊 Project Status:**\n` +
-            `**Created:** ${new Date(
-              projectInfo.createdAt
-            ).toLocaleDateString()}\n` +
-            `**Last Used:** ${new Date(
-              projectInfo.lastUsed
-            ).toLocaleDateString()}\n` +
+            `**Created:** ${new Date(projectInfo.createdAt).toLocaleDateString()}\n` +
+            `**Last Used:** ${new Date(projectInfo.lastUsed).toLocaleDateString()}\n` +
             `**Initialized:** ${isInitialized ? 'Yes' : 'No'}\n` +
             `**Current Mode:** ${currentMode}`,
         } as TextContent,
@@ -2139,8 +2249,8 @@ export class CodeGuidanceMCPServer {
       }
 
       // Get global storage and project storage
-      const globalStorage = this.projectManager.getGlobalStorage();
-      const projectStorage = this.projectManager.getProjectStorage(projectPath);
+      const globalStorage = await this.projectManager.getGlobalStorage();
+      const projectStorage = await this.projectManager.getProjectStorage(projectPath);
 
       // Sync templates
       const globalTemplates = await globalStorage.listTemplates();
@@ -2190,9 +2300,7 @@ export class CodeGuidanceMCPServer {
         content: [
           {
             type: 'text',
-            text: `❌ **Sync failed:** ${
-              error instanceof Error ? error.message : String(error)
-            }`,
+            text: `❌ **Sync failed:** ${error instanceof Error ? error.message : String(error)}`,
           } as TextContent,
         ],
       };
@@ -2210,9 +2318,7 @@ export class CodeGuidanceMCPServer {
 
     return templateTags.some(
       (tag: string) =>
-        projectFrameworks.includes(tag) ||
-        projectLanguages.includes(tag) ||
-        projectType === tag
+        projectFrameworks.includes(tag) || projectLanguages.includes(tag) || projectType === tag
     );
   }
 
@@ -2227,9 +2333,7 @@ export class CodeGuidanceMCPServer {
 
     return workflowTags.some(
       (tag: string) =>
-        projectFrameworks.includes(tag) ||
-        projectLanguages.includes(tag) ||
-        projectType === tag
+        projectFrameworks.includes(tag) || projectLanguages.includes(tag) || projectType === tag
     );
   }
 
@@ -2250,19 +2354,16 @@ export class CodeGuidanceMCPServer {
         content: [
           {
             type: 'text',
-            text: `✅ **Memory Saved Successfully**\n\n**Content:** ${(
-              content as string
-            ).substring(0, 100)}${
+            text: `✅ **Memory Saved Successfully**\n\n**Content:** ${(content as string).substring(
+              0,
+              100
+            )}${
               (content as string).length > 100 ? '...' : ''
             }\n**Type:** ${type}\n**Category:** ${category}\n**Scope:** ${
               decision.scope
-            }\n**Confidence:** ${(decision.confidence * 100).toFixed(
-              1
-            )}%\n\n**Reasoning:** ${
+            }\n**Confidence:** ${(decision.confidence * 100).toFixed(1)}%\n\n**Reasoning:** ${
               decision.reasoning
-            }\n\n**Key Factors:**\n${decision.factors
-              .map((factor) => `- ${factor}`)
-              .join('\n')}`,
+            }\n\n**Key Factors:**\n${decision.factors.map((factor) => `- ${factor}`).join('\n')}`,
           } as TextContent,
         ],
       };
@@ -2306,11 +2407,9 @@ export class CodeGuidanceMCPServer {
       const memoryList = results
         .map((result, index) => {
           const memory = result.memory;
-          return `${index + 1}. **${memory.type}** (${
-            memory.scope
-          }) - Relevance: ${(result.relevance * 100).toFixed(
-            1
-          )}%\n   ${memory.content.substring(0, 150)}${
+          return `${index + 1}. **${memory.type}** (${memory.scope}) - Relevance: ${(
+            result.relevance * 100
+          ).toFixed(1)}%\n   ${memory.content.substring(0, 150)}${
             memory.content.length > 150 ? '...' : ''
           }\n   *Tags: ${memory.tags.join(', ') || 'None'}*\n`;
         })
@@ -2362,15 +2461,11 @@ export class CodeGuidanceMCPServer {
 
       const memoryList = memories
         .map((memory, index) => {
-          return `${index + 1}. **${memory.type}** (${
-            memory.scope
-          }) - Importance: ${
+          return `${index + 1}. **${memory.type}** (${memory.scope}) - Importance: ${
             memory.importance
           }/10\n   ${memory.content.substring(0, 100)}${
             memory.content.length > 100 ? '...' : ''
-          }\n   *Created: ${new Date(
-            memory.createdAt
-          ).toLocaleDateString()}*\n`;
+          }\n   *Created: ${new Date(memory.createdAt).toLocaleDateString()}*\n`;
         })
         .join('\n');
 
@@ -2400,10 +2495,7 @@ export class CodeGuidanceMCPServer {
     try {
       const { id, scope } = args;
 
-      const memory = await this.memoryRouter.getMemory(
-        id as string,
-        scope as 'global' | 'project'
-      );
+      const memory = await this.memoryRouter.getMemory(id as string, scope as 'global' | 'project');
 
       if (!memory) {
         return {
@@ -2426,15 +2518,11 @@ export class CodeGuidanceMCPServer {
               memory.scope
             }\n**Importance:** ${memory.importance}/10\n**Access Count:** ${
               memory.accessCount
-            }\n\n**Content:**\n${
-              memory.content
-            }\n\n**Context:**\n${JSON.stringify(
+            }\n\n**Content:**\n${memory.content}\n\n**Context:**\n${JSON.stringify(
               memory.context,
               null,
               2
-            )}\n\n**Tags:** ${
-              memory.tags.join(', ') || 'None'
-            }\n\n**Created:** ${new Date(
+            )}\n\n**Tags:** ${memory.tags.join(', ') || 'None'}\n\n**Created:** ${new Date(
               memory.createdAt
             ).toLocaleString()}\n**Updated:** ${new Date(
               memory.updatedAt
@@ -2504,19 +2592,14 @@ export class CodeGuidanceMCPServer {
 
       const agentContext: AgentRequestContext = {
         filePath: contextObj.filePath as string,
-        projectPath:
-          (contextObj.projectPath as string) || this.projectPath || '',
+        projectPath: (contextObj.projectPath as string) || this.projectPath || '',
         projectType: contextObj.projectType as string,
         workflowId: contextObj.workflowId as string,
         workflowStep: contextObj.workflowStep as string,
         userQuery: contextObj.userQuery as string,
         codeContent: contextObj.codeContent as string,
         analysisType: contextObj.analysisType as string,
-        agentType: contextObj.agentType as
-          | 'cursor'
-          | 'copilot'
-          | 'roocode'
-          | 'kilocode',
+        agentType: contextObj.agentType as 'cursor' | 'copilot' | 'roocode' | 'kilocode',
       };
 
       const enhancedRequest = await this.memoryRuleManager.enhanceAgentRequest(
@@ -2529,9 +2612,7 @@ export class CodeGuidanceMCPServer {
           const memory = result.memory;
           return `${index + 1}. **${memory.type}** (${
             memory.scope
-          }): ${memory.content.substring(0, 100)}${
-            memory.content.length > 100 ? '...' : ''
-          }`;
+          }): ${memory.content.substring(0, 100)}${memory.content.length > 100 ? '...' : ''}`;
         })
         .join('\n');
 
@@ -2541,15 +2622,11 @@ export class CodeGuidanceMCPServer {
             type: 'text',
             text: `🤖 **Enhanced Agent Request**\n\n**Original Request:**\n${request}\n\n**Relevant Memories Attached (${
               enhancedRequest.relevantMemories.length
-            }):**\n${
-              memorySummary || 'No relevant memories found'
-            }\n\n**Applied Rules (${
+            }):**\n${memorySummary || 'No relevant memories found'}\n\n**Applied Rules (${
               enhancedRequest.memoryRules.length
             }):**\n${enhancedRequest.memoryRules
               .map((rule) => `- ${rule.name}`)
-              .join('\n')}\n\n**Enhanced Prompt:**\n${
-              enhancedRequest.enhancedPrompt
-            }`,
+              .join('\n')}\n\n**Enhanced Prompt:**\n${enhancedRequest.enhancedPrompt}`,
           } as TextContent,
         ],
       };
@@ -2567,9 +2644,7 @@ export class CodeGuidanceMCPServer {
     }
   }
 
-  private async handleInitializeProjectMemoryRules(
-    args: Record<string, unknown>
-  ) {
+  private async handleInitializeProjectMemoryRules(args: Record<string, unknown>) {
     try {
       const { projectPath, projectType } = args;
 
@@ -2579,17 +2654,13 @@ export class CodeGuidanceMCPServer {
       );
 
       const rules = this.memoryRuleManager.getRules();
-      const projectRules = rules.filter(
-        (rule) => rule.context.projectType === projectType
-      );
+      const projectRules = rules.filter((rule) => rule.context.projectType === projectType);
 
       const ruleList = projectRules
         .map((rule, index) => {
           return `${index + 1}. **${rule.name}** (${rule.scope})\n   ${
             rule.description
-          }\n   Trigger: ${
-            rule.trigger.type
-          }\n   Memory Types: ${rule.memoryTypes.join(
+          }\n   Trigger: ${rule.trigger.type}\n   Memory Types: ${rule.memoryTypes.join(
             ', '
           )}\n   Max Memories: ${rule.maxMemories}`;
         })
@@ -2621,9 +2692,7 @@ export class CodeGuidanceMCPServer {
     try {
       const { scope } = args;
 
-      const rules = await this.storage.listMemoryRules(
-        scope as 'global' | 'project'
-      );
+      const rules = await this.storage.listMemoryRules(scope as 'global' | 'project');
 
       if (rules.length === 0) {
         return {
@@ -2645,9 +2714,7 @@ export class CodeGuidanceMCPServer {
             rule.trigger.type
           }\n   Memory Types: ${rule.memoryTypes.join(
             ', '
-          )}\n   Max Memories: ${rule.maxMemories}\n   Threshold: ${
-            rule.relevanceThreshold
-          }`;
+          )}\n   Max Memories: ${rule.maxMemories}\n   Threshold: ${rule.relevanceThreshold}`;
         })
         .join('\n\n');
 
@@ -2706,9 +2773,7 @@ export class CodeGuidanceMCPServer {
               memoryRule.scope
             }\n**Trigger:** ${
               memoryRule.trigger.type
-            }\n**Memory Types:** ${memoryRule.memoryTypes.join(
-              ', '
-            )}\n**Max Memories:** ${
+            }\n**Memory Types:** ${memoryRule.memoryTypes.join(', ')}\n**Max Memories:** ${
               memoryRule.maxMemories
             }\n**Relevance Threshold:** ${
               memoryRule.relevanceThreshold
@@ -2901,9 +2966,7 @@ export class CodeGuidanceMCPServer {
 
     try {
       // Auto-detect project without requiring projectType
-      const projectInfo = await this.projectManager.initializeProject(
-        projectPath
-      );
+      const projectInfo = await this.projectManager.initializeProject(projectPath);
 
       // Create project-specific memory rules based on detected tech stack
       await this.createProjectSpecificRules(projectInfo);
@@ -2918,15 +2981,11 @@ export class CodeGuidanceMCPServer {
               `**Type:** ${projectInfo.type}\n` +
               `**Path:** ${projectInfo.path}\n\n` +
               `**🔧 Tech Stack Detected:**\n` +
-              `**Frameworks:** ${
-                projectInfo.frameworks.join(', ') || 'None'
-              }\n` +
+              `**Frameworks:** ${projectInfo.frameworks.join(', ') || 'None'}\n` +
               `**Languages:** ${projectInfo.languages.join(', ') || 'None'}\n` +
               `**Tools:** ${projectInfo.tools.join(', ') || 'None'}\n` +
               `**Databases:** ${projectInfo.databases.join(', ') || 'None'}\n` +
-              `**Deployment:** ${
-                projectInfo.deployment.join(', ') || 'None'
-              }\n\n` +
+              `**Deployment:** ${projectInfo.deployment.join(', ') || 'None'}\n\n` +
               `**🎯 What was set up:**\n` +
               `✅ Project database initialized\n` +
               `✅ Global templates synced\n` +
@@ -2953,9 +3012,7 @@ export class CodeGuidanceMCPServer {
     }
   }
 
-  private async createProjectSpecificRules(
-    projectInfo: ProjectInfo
-  ): Promise<void> {
+  private async createProjectSpecificRules(projectInfo: ProjectInfo): Promise<void> {
     // Create memory rules based on detected tech stack
     const rules = [];
 
@@ -3020,10 +3077,7 @@ export class CodeGuidanceMCPServer {
     }
 
     // Testing-specific rules
-    if (
-      projectInfo.tools?.includes('jest') ||
-      projectInfo.tools?.includes('vitest')
-    ) {
+    if (projectInfo.tools?.includes('jest') || projectInfo.tools?.includes('vitest')) {
       rules.push({
         name: 'Testing Patterns',
         description: 'Memory rule for testing best practices',
@@ -3101,6 +3155,343 @@ export class CodeGuidanceMCPServer {
         return await this.handleCreateMemoryRule(restArgs);
       default:
         throw new Error(`Unknown memory rule action: ${action}`);
+    }
+  }
+
+  // Anubis MCP Tool Handlers
+  private async handleAnubisStartWorkflow(
+    args: Record<string, unknown>
+  ): Promise<{ content: TextContent[] }> {
+    try {
+      const result = (await executeAnubisTool('start_workflow', args)) as any;
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🚀 **Anubis Workflow Started**\n\n**Execution ID:** ${result.id}\n**Workflow:** ${result.workflowId}\n**Current Role:** ${result.currentRole}\n**Status:** ${result.status}\n\n**Next Steps:**\n- Use \`get_guidance\` to get step-by-step guidance\n- Use \`report_completion\` when you complete a step\n- Use \`transition_role_workflow\` to switch roles`,
+          } as TextContent,
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ **Error starting Anubis workflow:** ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          } as TextContent,
+        ],
+      };
+    }
+  }
+
+  private async handleAnubisGetGuidance(
+    args: Record<string, unknown>
+  ): Promise<{ content: TextContent[] }> {
+    try {
+      const result = await executeAnubisTool('get_guidance', args);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: formatAnubisGuidance(result),
+          } as TextContent,
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ **Error getting Anubis guidance:** ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          } as TextContent,
+        ],
+      };
+    }
+  }
+
+  private async handleAnubisReportCompletion(
+    args: Record<string, unknown>
+  ): Promise<{ content: TextContent[] }> {
+    try {
+      const result = (await executeAnubisTool('report_completion', args)) as any;
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `✅ **Step Completed Successfully**\n\n**Status:** ${result.status}\n**Current Step:** ${result.currentStep}\n**Completed Steps:** ${result.completedSteps.length}\n**Next Role:** ${result.currentRole}\n\n**Metrics:**\n- Files Created: ${result.metrics.filesCreated}\n- Files Modified: ${result.metrics.filesModified}\n- Tests Written: ${result.metrics.testsWritten}\n- Coverage: ${result.metrics.coverage}%\n- Quality Score: ${result.metrics.qualityScore}/100`,
+          } as TextContent,
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ **Error reporting completion:** ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          } as TextContent,
+        ],
+      };
+    }
+  }
+
+  private async handleAnubisTransitionRole(
+    args: Record<string, unknown>
+  ): Promise<{ content: TextContent[] }> {
+    try {
+      const result = (await executeAnubisTool('transition_role_workflow', args)) as any;
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🔄 **Role Transition Successful**\n\n**From:** ${
+              result.roleHistory[result.roleHistory.length - 1]?.fromRole
+            }\n**To:** ${result.currentRole}\n**Handoff Notes:** ${
+              args.handoffNotes
+            }\n**Decisions:** ${
+              (args.decisions as string[])?.join(', ') || 'None'
+            }\n\n**Context Preserved:** ✅\n**Next Steps:** Use \`get_guidance\` to get guidance for the new role`,
+          } as TextContent,
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ **Error transitioning role:** ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          } as TextContent,
+        ],
+      };
+    }
+  }
+
+  private async handleAnubisGetMetrics(
+    args: Record<string, unknown>
+  ): Promise<{ content: TextContent[] }> {
+    try {
+      const result = await executeAnubisTool('get_metrics', args);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: formatAnubisMetrics(result),
+          } as TextContent,
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ **Error getting metrics:** ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          } as TextContent,
+        ],
+      };
+    }
+  }
+
+  private async handleAnubisListWorkflows(
+    args: Record<string, unknown>
+  ): Promise<{ content: TextContent[] }> {
+    try {
+      const result = await executeAnubisTool('list_workflows', args);
+      const workflows = result as any[];
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `📋 **Available Anubis Workflows**\n\n${workflows
+              .map(
+                (w) =>
+                  `**${w.name}** (${w.id})\n- Description: ${
+                    w.description
+                  }\n- Agent Type: ${w.agentType}\n- Steps: ${
+                    w.steps.length
+                  }\n- Roles: ${w.roles.join(', ')}\n- Tags: ${w.tags.join(', ')}\n`
+              )
+              .join(
+                '\n'
+              )}\n\n**Usage:** Use \`start_workflow\` with the workflow ID to begin execution`,
+          } as TextContent,
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ **Error listing workflows:** ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          } as TextContent,
+        ],
+      };
+    }
+  }
+
+  private async handleAnubisGetWorkflow(
+    args: Record<string, unknown>
+  ): Promise<{ content: TextContent[] }> {
+    try {
+      const result = await executeAnubisTool('get_workflow', args);
+      if (!result) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `❌ **Workflow not found:** ${args.workflowId}`,
+            } as TextContent,
+          ],
+        };
+      }
+      const workflow = result as any;
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `📋 **Anubis Workflow Details**\n\n**Name:** ${
+              workflow.name
+            }\n**ID:** ${workflow.id}\n**Description:** ${
+              workflow.description
+            }\n**Agent Type:** ${workflow.agentType}\n**Steps:** ${
+              workflow.steps.length
+            }\n**Roles:** ${workflow.roles.join(', ')}\n**Tags:** ${workflow.tags.join(
+              ', '
+            )}\n\n**Steps:**\n${workflow.steps
+              .map(
+                (step: any, index: number) =>
+                  `${index + 1}. **${step.name}** (${step.roleId})\n   - ${
+                    step.description
+                  }\n   - Estimated Time: ${step.estimatedTime}\n   - Dependencies: ${
+                    step.dependencies.join(', ') || 'None'
+                  }\n`
+              )
+              .join(
+                '\n'
+              )}\n\n**Usage:** Use \`start_workflow\` with this workflow ID to begin execution`,
+          } as TextContent,
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ **Error getting workflow:** ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          } as TextContent,
+        ],
+      };
+    }
+  }
+
+  private async handleAnubisPauseExecution(
+    args: Record<string, unknown>
+  ): Promise<{ content: TextContent[] }> {
+    try {
+      const result = (await executeAnubisTool('pause_execution', args)) as any;
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `⏸️ **Execution Paused**\n\n**Execution ID:** ${
+              result.id
+            }\n**Status:** ${result.status}\n**Reason:** ${
+              args.reason || 'No reason provided'
+            }\n\n**To resume:** Use \`resume_execution\` with the execution ID`,
+          } as TextContent,
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ **Error pausing execution:** ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          } as TextContent,
+        ],
+      };
+    }
+  }
+
+  private async handleAnubisResumeExecution(
+    args: Record<string, unknown>
+  ): Promise<{ content: TextContent[] }> {
+    try {
+      const result = (await executeAnubisTool('resume_execution', args)) as any;
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `▶️ **Execution Resumed**\n\n**Execution ID:** ${result.id}\n**Status:** ${result.status}\n**Current Role:** ${result.currentRole}\n**Current Step:** ${result.currentStep}\n\n**Next Steps:** Use \`get_guidance\` to get guidance for the current step`,
+          } as TextContent,
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ **Error resuming execution:** ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          } as TextContent,
+        ],
+      };
+    }
+  }
+
+  private async handleAnubisListRoles(
+    args: Record<string, unknown>
+  ): Promise<{ content: TextContent[] }> {
+    try {
+      const result = await executeAnubisTool('list_roles', args);
+      const roles = result as any[];
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `🎭 **Available Anubis Roles**\n\n${roles
+              .map(
+                (role) =>
+                  `**${role.displayName}** (${role.id})\n- Description: ${
+                    role.description
+                  }\n- Agent Type: ${role.agentType}\n- Capabilities: ${role.capabilities.join(
+                    ', '
+                  )}\n- Responsibilities: ${role.responsibilities.join(', ')}\n- Next Roles: ${
+                    role.nextRoles.join(', ') || 'None'
+                  }\n- Quality Gates: ${role.qualityGates.join(', ')}\n`
+              )
+              .join(
+                '\n'
+              )}\n\n**Role Flow:** Product Manager → Architect → Senior Developer → Code Review → Integration Engineer`,
+          } as TextContent,
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `❌ **Error listing roles:** ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          } as TextContent,
+        ],
+      };
     }
   }
 

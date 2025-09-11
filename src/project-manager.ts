@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { DatabaseConnection } from './db/connection';
-import { HybridStorage } from './hybrid-storage';
-import { MemoryRouter } from './memory-router';
-import { MemoryRuleManager } from './memory-rule-manager';
+import { DatabaseConnection } from './db/connection.js';
+import { HybridStorage } from './hybrid-storage.js';
+import { MemoryRouter } from './memory-router.js';
+import { MemoryRuleManager } from './memory-rule-manager.js';
 
 export interface ProjectInfo {
   id: string;
@@ -129,11 +129,7 @@ export class ProjectManager {
   }
 
   private ensureDirectories(): void {
-    const dirs = [
-      dirname(this.globalConfigPath),
-      this.projectsPath,
-      dirname(this.globalDbPath),
-    ];
+    const dirs = [dirname(this.globalConfigPath), this.projectsPath, dirname(this.globalDbPath)];
 
     for (const dir of dirs) {
       if (!existsSync(dir)) {
@@ -161,10 +157,7 @@ export class ProjectManager {
     }
 
     // Detect Python projects
-    if (
-      existsSync(configFiles.pyProject) ||
-      existsSync(configFiles.requirements)
-    ) {
+    if (existsSync(configFiles.pyProject) || existsSync(configFiles.requirements)) {
       this.detectPythonProject(configFiles, projectInfo);
     }
 
@@ -208,9 +201,7 @@ export class ProjectManager {
     projectInfo: ProjectInfo
   ) {
     try {
-      const packageJson = JSON.parse(
-        readFileSync(configFiles.packageJson, 'utf8')
-      ) as PackageJson;
+      const packageJson = JSON.parse(readFileSync(configFiles.packageJson, 'utf8')) as PackageJson;
 
       const dependencies: PackageJsonDependencies = {
         ...packageJson.dependencies,
@@ -258,10 +249,7 @@ export class ProjectManager {
     }
   }
 
-  private detectBackendFrameworks(
-    dependencies: PackageJsonDependencies,
-    projectInfo: ProjectInfo
-  ) {
+  private detectBackendFrameworks(dependencies: PackageJsonDependencies, projectInfo: ProjectInfo) {
     const backendFrameworks = {
       express: 'express',
       fastify: 'fastify',
@@ -277,10 +265,7 @@ export class ProjectManager {
     }
   }
 
-  private detectBuildTools(
-    dependencies: PackageJsonDependencies,
-    projectInfo: ProjectInfo
-  ) {
+  private detectBuildTools(dependencies: PackageJsonDependencies, projectInfo: ProjectInfo) {
     const buildTools = {
       vite: 'vite',
       webpack: 'webpack',
@@ -296,10 +281,7 @@ export class ProjectManager {
     }
   }
 
-  private detectCssFrameworks(
-    dependencies: PackageJsonDependencies,
-    projectInfo: ProjectInfo
-  ) {
+  private detectCssFrameworks(dependencies: PackageJsonDependencies, projectInfo: ProjectInfo) {
     const cssFrameworks = {
       tailwindcss: 'tailwindcss',
       '@emotion/react': 'emotion',
@@ -315,10 +297,7 @@ export class ProjectManager {
     }
   }
 
-  private detectStateManagement(
-    dependencies: PackageJsonDependencies,
-    projectInfo: ProjectInfo
-  ) {
+  private detectStateManagement(dependencies: PackageJsonDependencies, projectInfo: ProjectInfo) {
     const stateManagement = {
       redux: 'redux',
       '@reduxjs/toolkit': 'redux-toolkit',
@@ -334,10 +313,7 @@ export class ProjectManager {
     }
   }
 
-  private detectTestingFrameworks(
-    dependencies: PackageJsonDependencies,
-    projectInfo: ProjectInfo
-  ) {
+  private detectTestingFrameworks(dependencies: PackageJsonDependencies, projectInfo: ProjectInfo) {
     const testingFrameworks = {
       jest: 'jest',
       vitest: 'vitest',
@@ -353,10 +329,7 @@ export class ProjectManager {
     }
   }
 
-  private detectDatabases(
-    dependencies: PackageJsonDependencies,
-    projectInfo: ProjectInfo
-  ) {
+  private detectDatabases(dependencies: PackageJsonDependencies, projectInfo: ProjectInfo) {
     const databases = {
       prisma: 'prisma',
       mongoose: 'mongodb',
@@ -373,10 +346,7 @@ export class ProjectManager {
     }
   }
 
-  private detectApiTools(
-    dependencies: PackageJsonDependencies,
-    projectInfo: ProjectInfo
-  ) {
+  private detectApiTools(dependencies: PackageJsonDependencies, projectInfo: ProjectInfo) {
     const apiTools = {
       '@trpc/server': 'trpc',
       graphql: 'graphql',
@@ -403,10 +373,7 @@ export class ProjectManager {
     }
   }
 
-  private detectDeployment(
-    dependencies: PackageJsonDependencies,
-    projectInfo: ProjectInfo
-  ) {
+  private detectDeployment(dependencies: PackageJsonDependencies, projectInfo: ProjectInfo) {
     const deployment = {
       vercel: 'vercel',
       netlify: 'netlify',
@@ -480,7 +447,7 @@ export class ProjectManager {
 
     // Create local database
     const localDbPath = join(projectPath, '.guidance', 'guidance.db');
-    const _dbConnection = await DatabaseConnection.getInstance();
+    const _dbConnection = await DatabaseConnection.getInstance(localDbPath);
 
     // Initialize local storage
     const _localStorage = await HybridStorage.create(localDbPath);
@@ -503,8 +470,12 @@ export class ProjectManager {
   public async getProjectStorage(projectPath?: string): Promise<HybridStorage> {
     if (projectPath) {
       const localDbPath = join(projectPath, '.guidance', 'guidance.db');
+      // Ensure database connection is initialized
+      await DatabaseConnection.getInstance(localDbPath);
       return await HybridStorage.create(localDbPath);
     }
+    // Ensure database connection is initialized
+    await DatabaseConnection.getInstance(this.globalDbPath);
     return await HybridStorage.create(this.globalDbPath);
   }
 
@@ -512,6 +483,8 @@ export class ProjectManager {
    * Get global storage
    */
   public async getGlobalStorage(): Promise<HybridStorage> {
+    // Ensure database connection is initialized
+    await DatabaseConnection.getInstance(this.globalDbPath);
     return await HybridStorage.create(this.globalDbPath);
   }
 
@@ -536,9 +509,7 @@ export class ProjectManager {
   /**
    * Get project info by path
    */
-  public async getProjectInfo(
-    projectPath: string
-  ): Promise<ProjectInfo | null> {
+  public async getProjectInfo(projectPath: string): Promise<ProjectInfo | null> {
     const projects = await this.listProjects();
     const resolvedPath = resolve(projectPath);
     return projects.find((p) => resolve(p.path) === resolvedPath) || null;
@@ -568,19 +539,14 @@ export class ProjectManager {
    * Sync global templates and workflows to local project
    */
   private async syncGlobalToLocal(projectInfo: ProjectInfo): Promise<void> {
-    const globalStorage = this.getGlobalStorage();
-    const localStorage = this.getProjectStorage(projectInfo.path);
+    const globalStorage = await this.getGlobalStorage();
+    const localStorage = await this.getProjectStorage(projectInfo.path);
 
     // Copy global templates
     const globalTemplates = await globalStorage.listTemplates();
     for (const template of globalTemplates) {
       // Check if template is applicable to this project type
-      if (
-        this.isTemplateApplicable(
-          template as unknown as TemplateObject,
-          projectInfo
-        )
-      ) {
+      if (this.isTemplateApplicable(template as unknown as TemplateObject, projectInfo)) {
         await localStorage.saveTemplate(template);
       }
     }
@@ -588,12 +554,7 @@ export class ProjectManager {
     // Copy global workflows
     const globalWorkflows = await globalStorage.listWorkflows();
     for (const workflow of globalWorkflows) {
-      if (
-        this.isWorkflowApplicable(
-          workflow as unknown as WorkflowObject,
-          projectInfo
-        )
-      ) {
+      if (this.isWorkflowApplicable(workflow as unknown as WorkflowObject, projectInfo)) {
         await localStorage.saveWorkflow(workflow);
       }
     }
@@ -602,32 +563,22 @@ export class ProjectManager {
   /**
    * Check if template is applicable to project
    */
-  private isTemplateApplicable(
-    template: TemplateObject,
-    project: ProjectInfo
-  ): boolean {
+  private isTemplateApplicable(template: TemplateObject, project: ProjectInfo): boolean {
     const templateTags = template.tags || [];
     return templateTags.some(
       (tag: string) =>
-        project.frameworks.includes(tag) ||
-        project.languages.includes(tag) ||
-        project.type === tag
+        project.frameworks.includes(tag) || project.languages.includes(tag) || project.type === tag
     );
   }
 
   /**
    * Check if workflow is applicable to project
    */
-  private isWorkflowApplicable(
-    workflow: WorkflowObject,
-    project: ProjectInfo
-  ): boolean {
+  private isWorkflowApplicable(workflow: WorkflowObject, project: ProjectInfo): boolean {
     const workflowTags = workflow.tags || [];
     return workflowTags.some(
       (tag: string) =>
-        project.frameworks.includes(tag) ||
-        project.languages.includes(tag) ||
-        project.type === tag
+        project.frameworks.includes(tag) || project.languages.includes(tag) || project.type === tag
     );
   }
 
@@ -700,24 +651,19 @@ export class ProjectManager {
   /**
    * Initialize memory rules for a project
    */
-  private async initializeProjectMemoryRules(
-    projectInfo: ProjectInfo
-  ): Promise<void> {
+  private async initializeProjectMemoryRules(projectInfo: ProjectInfo): Promise<void> {
     try {
-      const globalStorage = this.getGlobalStorage();
-      const localStorage = this.getProjectStorage(projectInfo.path);
+      const globalStorage = await this.getGlobalStorage();
+      const localStorage = await this.getProjectStorage(projectInfo.path);
 
       // Create memory router and rule manager
       const memoryRouter = new MemoryRouter(this, globalStorage);
-      memoryRouter.setProjectContext(projectInfo.path);
+      await memoryRouter.setProjectContext(projectInfo.path);
 
       const memoryRuleManager = new MemoryRuleManager(memoryRouter, this);
 
       // Initialize project-specific memory rules
-      await memoryRuleManager.initializeProjectRules(
-        projectInfo.path,
-        projectInfo.type
-      );
+      await memoryRuleManager.initializeProjectRules(projectInfo.path, projectInfo.type);
 
       // Save the rules to both global and project storage
       const rules = memoryRuleManager.getRules();

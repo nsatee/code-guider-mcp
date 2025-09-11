@@ -1,18 +1,16 @@
 #!/usr/bin/env node
 
 import { existsSync } from 'node:fs';
-import { DatabaseConnection } from './db/connection';
-import { HybridStorage } from './hybrid-storage';
-import { LocalStorage } from './storage';
-import { VectorStorage } from './vector-storage';
+import { DatabaseConnection } from './db/connection.js';
+import { HybridStorage } from './hybrid-storage.js';
+import { LocalStorage } from './storage.js';
+import { VectorStorage } from './vector-storage.js';
 
 /**
  * Migration script to convert from file-based storage to hybrid storage (Drizzle + Vector)
  */
 async function migrateToHybridStorage(): Promise<void> {
-  console.log(
-    '🔄 Starting migration from file-based storage to hybrid storage...'
-  );
+  console.log('🔄 Starting migration from file-based storage to hybrid storage...');
 
   let hybridStorage: HybridStorage | null = null;
 
@@ -24,7 +22,7 @@ async function migrateToHybridStorage(): Promise<void> {
     // Create tables directly since migration files don't exist
     const db = dbConnection.getRawDb();
     // Create tables one by one to avoid syntax issues
-    db.exec(`CREATE TABLE IF NOT EXISTS workflows (
+    await db.execute(`CREATE TABLE IF NOT EXISTS workflows (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT NOT NULL,
@@ -36,7 +34,7 @@ async function migrateToHybridStorage(): Promise<void> {
       updated_at TEXT NOT NULL
     )`);
 
-    db.exec(`CREATE TABLE IF NOT EXISTS templates (
+    await db.execute(`CREATE TABLE IF NOT EXISTS templates (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       type TEXT NOT NULL,
@@ -48,7 +46,7 @@ async function migrateToHybridStorage(): Promise<void> {
       updated_at TEXT NOT NULL
     )`);
 
-    db.exec(`CREATE TABLE IF NOT EXISTS quality_rules (
+    await db.execute(`CREATE TABLE IF NOT EXISTS quality_rules (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT NOT NULL,
@@ -60,12 +58,107 @@ async function migrateToHybridStorage(): Promise<void> {
       updated_at TEXT NOT NULL
     )`);
 
-    db.exec(`CREATE TABLE IF NOT EXISTS project_config (
+    await db.execute(`CREATE TABLE IF NOT EXISTS project_config (
       id TEXT PRIMARY KEY,
       config TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`);
+
+    // Create vector storage tables
+    await db.execute(`CREATE TABLE IF NOT EXISTS workflows_vector (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      content TEXT NOT NULL,
+      embedding BLOB,
+      metadata TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+
+    await db.execute(`CREATE TABLE IF NOT EXISTS templates_vector (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      content TEXT NOT NULL,
+      embedding BLOB,
+      metadata TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+
+    await db.execute(`CREATE TABLE IF NOT EXISTS quality_rules_vector (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      content TEXT NOT NULL,
+      embedding BLOB,
+      metadata TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+
+    await db.execute(`CREATE TABLE IF NOT EXISTS code_analysis (
+      id TEXT PRIMARY KEY,
+      file_path TEXT NOT NULL,
+      content TEXT NOT NULL,
+      embedding BLOB,
+      analysis TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`);
+
+    // Create memory management tables
+    await db.execute(`CREATE TABLE IF NOT EXISTS memories (
+      id TEXT PRIMARY KEY,
+      content TEXT NOT NULL,
+      type TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      category TEXT NOT NULL,
+      tags TEXT NOT NULL,
+      project_id TEXT,
+      context TEXT NOT NULL,
+      importance INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_accessed TEXT NOT NULL,
+      access_count INTEGER NOT NULL DEFAULT 0
+    )`);
+
+    await db.execute(`CREATE TABLE IF NOT EXISTS memories_vector (
+      id TEXT PRIMARY KEY,
+      content TEXT NOT NULL,
+      type TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      category TEXT NOT NULL,
+      tags TEXT NOT NULL,
+      project_id TEXT,
+      context TEXT NOT NULL,
+      importance INTEGER NOT NULL,
+      embedding BLOB,
+      metadata TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_accessed TEXT NOT NULL,
+      access_count INTEGER NOT NULL DEFAULT 0
+    )`);
+
+    await db.execute(`CREATE TABLE IF NOT EXISTS memory_rules (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      trigger TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      memory_types TEXT NOT NULL,
+      memory_categories TEXT NOT NULL,
+      max_memories INTEGER NOT NULL,
+      relevance_threshold INTEGER NOT NULL,
+      context TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`);
+
     console.log('  ✅ Database tables created');
 
     // Now create the storage instances
@@ -119,9 +212,7 @@ async function migrateToHybridStorage(): Promise<void> {
     console.log(`  - Project Config: ${config ? 'Yes' : 'No'}`);
 
     console.log('\n💡 The old file-based storage is preserved for backup.');
-    console.log(
-      '   You can now use the new hybrid storage with Drizzle ORM + Vector search!'
-    );
+    console.log('   You can now use the new hybrid storage with Drizzle ORM + Vector search!');
   } catch (error) {
     console.error('❌ Migration failed:', error);
     process.exit(1);
@@ -134,15 +225,13 @@ async function migrateToHybridStorage(): Promise<void> {
 
 // Legacy migration function for backward compatibility
 async function migrateToVectorStorage(): Promise<void> {
-  console.log(
-    '🔄 Starting migration from file-based storage to vector storage...'
-  );
+  console.log('🔄 Starting migration from file-based storage to vector storage...');
 
   const fileStorage = new LocalStorage();
   let vectorStorage: VectorStorage | null = null;
 
   try {
-    vectorStorage = new VectorStorage();
+    vectorStorage = await VectorStorage.create('.guidance/guidance.db');
     // Check if vector storage already exists
     if (existsSync('.guidance/guidance.db')) {
       console.log('⚠️  Vector storage already exists. Skipping migration.');
@@ -189,9 +278,7 @@ async function migrateToVectorStorage(): Promise<void> {
     console.log(`  - Project Config: ${config ? 'Yes' : 'No'}`);
 
     console.log('\n💡 The old file-based storage is preserved for backup.');
-    console.log(
-      '   You can now use the new AI-powered vector storage features!'
-    );
+    console.log('   You can now use the new AI-powered vector storage features!');
   } catch (error) {
     console.error('❌ Migration failed:', error);
     process.exit(1);

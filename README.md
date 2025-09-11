@@ -23,8 +23,8 @@ An AI-powered local Model Context Protocol (MCP) server that provides intelligen
 - ⏸️ **Pause/Resume**: Pause and resume workflow executions at any time
 - 📈 **Execution Metrics**: Detailed metrics and performance tracking
 - ⚡ **Performance**: 3-10x faster operations with Drizzle ORM + Bun SQLite optimization
-- 🚀 **Bun Native**: Built with Bun's native SQLite for 3-6x faster database operations
-- 📦 **Zero Dependencies**: No native modules or external SQLite packages required
+- 🚀 **LibSQL Powered**: Built with LibSQL for cross-platform compatibility and optimal performance
+- 📦 **Zero Native Dependencies**: Pure JavaScript/TypeScript with no native compilation required
 - 🤖 **AI Migration**: Natural language migration commands that intelligently transform and migrate data
 - 🔄 **Smart Transformation**: AI-powered data transformation with validation and rollback capabilities
 - 🛡️ **Safe Migration**: Built-in backup, dry-run, and validation features for safe data migration
@@ -51,16 +51,16 @@ git clone <your-repo-url>
 cd code-guider
 
 # Install dependencies
-bun install
+npm install
 
 # Build the project
-bun run build
+npm run build
 
 # Run database migration (first time only)
-bun run migrate
+npm run migrate
 
 # Start the MCP server
-bun run start
+npm start
 ```
 
 ### Running the MCP Server
@@ -88,7 +88,7 @@ code-guider-mcp --help
 
 ```bash
 # Start the MCP server
-bun run start
+npm start
 ```
 
 ### Multi-Project Support
@@ -154,8 +154,8 @@ code-guider-mcp /path/to/project
 {
   "mcpServers": {
     "code-guidance": {
-      "command": "bun",
-      "args": ["run", "dist/index.js"],
+      "command": "node",
+      "args": ["dist/index.js"],
       "cwd": "/path/to/code-guider"
     }
   }
@@ -225,7 +225,7 @@ The system automatically migrates from the legacy file-based storage to the new 
 
 ```bash
 # Run migration (first time only)
-bun run migrate
+npm run migrate
 ```
 
 This will:
@@ -237,14 +237,14 @@ This will:
 
 ### Performance Comparison
 
-| Operation          | File-based        | Hybrid Storage  | Bun SQLite       | Improvement       |
-| ------------------ | ----------------- | --------------- | ---------------- | ----------------- |
-| Write (100 items)  | 50-100ms          | 10-20ms         | 3-8ms            | **6-15x faster**  |
-| Read (100 items)   | 20-50ms           | 5-15ms          | 2-5ms            | **4-20x faster**  |
-| Search (100 items) | 30-80ms           | 2-10ms          | 1-3ms            | **10-25x faster** |
-| Build Time         | 2-5s (tsc)        | 1-2s (tsc)      | 200-500ms (bun)  | **4-10x faster**  |
-| Memory Usage       | High (all data)   | Low (streaming) | Minimal (native) | **5-50x less**    |
-| Concurrent Reads   | Poor (file locks) | Excellent (WAL) | Excellent (WAL)  | **3-10x better**  |
+| Operation          | File-based        | Hybrid Storage  | LibSQL            | Improvement       |
+| ------------------ | ----------------- | --------------- | ----------------- | ----------------- |
+| Write (100 items)  | 50-100ms          | 10-20ms         | 3-8ms             | **6-15x faster**  |
+| Read (100 items)   | 20-50ms           | 5-15ms          | 2-5ms             | **4-20x faster**  |
+| Search (100 items) | 30-80ms           | 2-10ms          | 1-3ms             | **10-25x faster** |
+| Build Time         | 2-5s (tsc)        | 1-2s (tsc)      | 200-500ms (bun)   | **4-10x faster**  |
+| Memory Usage       | High (all data)   | Low (streaming) | Minimal (pure JS) | **5-50x less**    |
+| Concurrent Reads   | Poor (file locks) | Excellent (WAL) | Excellent (WAL)   | **3-10x better**  |
 
 ## MCP Functions
 
@@ -560,25 +560,25 @@ src/
 
 ### Scripts
 
-- `bun run build` - Build the project using Bun's native bundler (faster than TypeScript)
-- `bun run build:all` - Build all entry points (index.js and migrate.js)
-- `bun run dev` - Build and run the server
-- `bun run start` - Run the built server
-- `bun run migrate` - Run database migration (first time setup)
-- `bun run db:generate` - Generate Drizzle migrations
-- `bun run db:migrate` - Apply Drizzle migrations
-- `bun run db:studio` - Open Drizzle Studio (database GUI)
-- `bun run test` - Run tests with Bun's test runner
-- `bun run lint` - Run Biome linting on src/
-- `bun run lint:fix` - Fix linting issues automatically
-- `bun run format` - Format code with Biome
-- `bun run check` - Run both linting and formatting checks
-- `bun run check:fix` - Fix both linting and formatting issues
-- `bun run check:all` - Check entire project
-- `bun run format:all` - Format entire project
-- `bun run lint:all` - Lint entire project
+- `npm run build` - Build the project using TypeScript compiler
+- `npm run build:all` - Build all entry points (index.js and migrate.js)
+- `npm run dev` - Build and run the server
+- `npm start` - Run the built server
+- `npm run migrate` - Run database migration (first time setup)
+- `npm run db:generate` - Generate Drizzle migrations
+- `npm run db:migrate` - Apply Drizzle migrations
+- `npm run db:studio` - Open Drizzle Studio (database GUI)
+- `npm test` - Run tests with Jest
+- `npm run lint` - Run Biome linting on src/
+- `npm run lint:fix` - Fix linting issues automatically
+- `npm run format` - Format code with Biome
+- `npm run check` - Run both linting and formatting checks
+- `npm run check:fix` - Fix both linting and formatting issues
+- `npm run check:all` - Check entire project
+- `npm run format:all` - Format entire project
+- `npm run lint:all` - Lint entire project
 
-**Note**: All scripts use Bun's native tools for optimal performance. The migration script automatically handles the transition from file-based storage to hybrid storage with Bun SQLite.
+**Note**: All scripts use npm and standard Node.js tools. The migration script automatically handles the transition from file-based storage to hybrid storage with LibSQL.
 
 ### AI-Powered Migration System
 
@@ -598,25 +598,25 @@ The Code Guider now includes **intelligent migration tools** that understand nat
 - "update quality rules severity levels and merge duplicates"
 - "transform React component templates to use new variable syntax"
 
-### Bun SQLite Migration
+### LibSQL Migration
 
-The project has been fully migrated to use **Bun's native SQLite** instead of better-sqlite3:
+The project has been fully migrated to use **LibSQL** instead of better-sqlite3:
 
-- **3-6x faster** database operations with native SQLite
+- **Cross-platform compatibility** - works with both Bun and Node.js
 - **Zero native dependencies** - no compilation issues
-- **Smaller bundle size** (1.86MB vs 1.89MB)
-- **Better compatibility** across different platforms
+- **SQLite-compatible** - drop-in replacement for SQLite
+- **Better performance** than better-sqlite3
 - **Simplified deployment** with no native module requirements
 
 ### Build Performance
 
-The project uses **Bun's native bundler** instead of TypeScript compilation for significantly better performance:
+The project uses **TypeScript compiler** for reliable and consistent builds:
 
-- **~10x faster** than `tsc` for large projects
-- **Single bundled file** output for better runtime performance
-- **Tree shaking** and dead code elimination
-- **Native TypeScript support** without separate compilation step
-- **Faster development** with instant builds
+- **Standard TypeScript compilation** for maximum compatibility
+- **Type checking** during build process
+- **Incremental compilation** for faster subsequent builds
+- **Source maps** for better debugging experience
+- **Cross-platform compatibility** with all Node.js environments
 
 ### Adding New Tools
 
@@ -629,14 +629,14 @@ The project uses **Bun's native bundler** instead of TypeScript compilation for 
 
 ### Biome Configuration
 
-This project uses **Biome** for linting and formatting, providing a fast and comprehensive code quality solution optimized for Bun:
+This project uses **Biome** for linting and formatting, providing a fast and comprehensive code quality solution optimized for Node.js:
 
 #### Features
 
 - ⚡ **Ultra-fast**: 10-100x faster than ESLint + Prettier
 - 🔧 **All-in-one**: Linting, formatting, and import organization
 - 🎯 **Zero config**: Works out of the box with sensible defaults
-- 🚀 **Bun optimized**: Native integration with Bun runtime
+- 🚀 **Node.js optimized**: Native integration with Node.js runtime
 - 📏 **Comprehensive rules**: 200+ linting rules for code quality
 - 🎨 **Consistent formatting**: Automatic code formatting and style enforcement
 
@@ -673,25 +673,25 @@ The project includes a comprehensive `biome.json` configuration that enforces:
 
 ```bash
 # Linting
-bun run lint              # Lint src/ directory
-bun run lint:fix          # Fix linting issues automatically
-bun run lint:all          # Lint entire project
-bun run lint:all:fix      # Fix all linting issues
+npm run lint              # Lint src/ directory
+npm run lint:fix          # Fix linting issues automatically
+npm run lint:all          # Lint entire project
+npm run lint:all:fix      # Fix all linting issues
 
 # Formatting
-bun run format            # Format src/ directory
-bun run format:all        # Format entire project
+npm run format            # Format src/ directory
+npm run format:all        # Format entire project
 
 # Combined checks
-bun run check             # Check src/ (lint + format)
-bun run check:fix         # Fix src/ (lint + format)
-bun run check:all         # Check entire project
-bun run check:all:fix     # Fix entire project
+npm run check             # Check src/ (lint + format)
+npm run check:fix         # Fix src/ (lint + format)
+npm run check:all         # Check entire project
+npm run check:all:fix     # Fix entire project
 
 # Pre-commit hooks
-bun run pre-commit:install # Install pre-commit hooks
-bun run pre-commit:run     # Run pre-commit checks
-bun run pre-commit         # Install and run pre-commit checks
+npm run pre-commit:install # Install pre-commit hooks
+npm run pre-commit:run     # Run pre-commit checks
+npm run pre-commit         # Install and run pre-commit checks
 ```
 
 #### Pre-commit Hooks
@@ -707,10 +707,10 @@ To set up pre-commit hooks:
 
 ```bash
 # Install pre-commit hooks
-bun run pre-commit:install
+npm run pre-commit:install
 
 # Run all checks manually
-bun run pre-commit:run
+npm run pre-commit:run
 ```
 
 #### IDE Integration
@@ -736,7 +736,7 @@ The `biome.json` configuration includes:
 
 - **10-100x faster** than ESLint + Prettier
 - **Single tool** instead of multiple tools
-- **Native Bun integration** for optimal performance
+- **Native Node.js integration** for optimal performance
 - **Parallel processing** for large codebases
 - **Incremental checking** for faster subsequent runs
 

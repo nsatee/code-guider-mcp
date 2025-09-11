@@ -89,10 +89,7 @@ async function openStudio() {
   });
 }
 
-async function validateProjectContext(options: {
-  global?: boolean;
-  projectPath?: string;
-}) {
+async function validateProjectContext(options: { global?: boolean; projectPath?: string }) {
   if (options.global) {
     console.log(chalk.yellow('🌍 Using global storage mode'));
     return null;
@@ -109,9 +106,7 @@ async function validateProjectContext(options: {
     process.exit(1);
   }
 
-  console.log(
-    chalk.green(`📁 Using project: ${projectInfo.name} (${projectInfo.type})`)
-  );
+  console.log(chalk.green(`📁 Using project: ${projectInfo.name} (${projectInfo.type})`));
   return projectInfo;
 }
 
@@ -201,9 +196,7 @@ async function listProjects() {
   const projects = await projectManager.listProjects();
 
   if (projects.length === 0) {
-    console.log(
-      chalk.yellow('No projects found. Use --init to initialize a project.')
-    );
+    console.log(chalk.yellow('No projects found. Use --init to initialize a project.'));
     return;
   }
 
@@ -215,9 +208,7 @@ async function listProjects() {
     console.log(`   Type: ${project.type}`);
     console.log(`   Frameworks: ${project.frameworks.join(', ') || 'None'}`);
     console.log(`   Languages: ${project.languages.join(', ') || 'None'}`);
-    console.log(
-      `   Last Used: ${new Date(project.lastUsed).toLocaleDateString()}`
-    );
+    console.log(`   Last Used: ${new Date(project.lastUsed).toLocaleDateString()}`);
     console.log('');
   }
 }
@@ -234,24 +225,12 @@ async function initializeProject(projectPath?: string) {
     console.log(chalk.green('✅ Project initialized successfully!'));
     console.log(chalk.cyan(`📁 Project: ${projectInfo.name}`));
     console.log(chalk.cyan(`🔧 Type: ${projectInfo.type}`));
+    console.log(chalk.cyan(`⚡ Frameworks: ${projectInfo.frameworks.join(', ') || 'None'}`));
+    console.log(chalk.cyan(`💻 Languages: ${projectInfo.languages.join(', ') || 'None'}`));
     console.log(
-      chalk.cyan(
-        `⚡ Frameworks: ${projectInfo.frameworks.join(', ') || 'None'}`
-      )
+      chalk.gray(`\n💡 Project database created at: ${targetPath}/.guidance/guidance.db`)
     );
-    console.log(
-      chalk.cyan(`💻 Languages: ${projectInfo.languages.join(', ') || 'None'}`)
-    );
-    console.log(
-      chalk.gray(
-        `\n💡 Project database created at: ${targetPath}/.guidance/guidance.db`
-      )
-    );
-    console.log(
-      chalk.gray(
-        `   Global templates and workflows have been synced to this project.`
-      )
-    );
+    console.log(chalk.gray(`   Global templates and workflows have been synced to this project.`));
   } catch (error) {
     console.error(chalk.red('❌ Failed to initialize project:'), error);
     process.exit(1);

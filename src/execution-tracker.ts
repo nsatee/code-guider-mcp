@@ -1,11 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { StorageInterface } from './storage-interface';
-import type {
-  QualityCheckResult,
-  RoleTransition,
-  StepExecution,
-  WorkflowExecution,
-} from './types';
+import type { QualityCheckResult, RoleTransition, StepExecution, WorkflowExecution } from './types';
 
 export class ExecutionTracker {
   private storage: StorageInterface;
@@ -202,12 +197,9 @@ export class ExecutionTracker {
       return null;
     }
 
-    const updatedStepExecution = await this.updateStepExecution(
-      stepExecutionId,
-      {
-        qualityChecks: [...stepExecution.qualityChecks, qualityCheck],
-      }
-    );
+    const updatedStepExecution = await this.updateStepExecution(stepExecutionId, {
+      qualityChecks: [...stepExecution.qualityChecks, qualityCheck],
+    });
 
     return updatedStepExecution;
   }
@@ -234,9 +226,7 @@ export class ExecutionTracker {
   }
 
   async getExecutionsByStatus(status: string): Promise<WorkflowExecution[]> {
-    return Array.from(this.executions.values()).filter(
-      (execution) => execution.status === status
-    );
+    return Array.from(this.executions.values()).filter((execution) => execution.status === status);
   }
 
   async getExecutionsByRole(roleId: string): Promise<WorkflowExecution[]> {
@@ -245,10 +235,7 @@ export class ExecutionTracker {
     );
   }
 
-  async pauseExecution(
-    executionId: string,
-    reason: string
-  ): Promise<WorkflowExecution | null> {
+  async pauseExecution(executionId: string, reason: string): Promise<WorkflowExecution | null> {
     return this.updateExecution(executionId, {
       status: 'paused',
       context: {
@@ -258,9 +245,7 @@ export class ExecutionTracker {
     });
   }
 
-  async resumeExecution(
-    executionId: string
-  ): Promise<WorkflowExecution | null> {
+  async resumeExecution(executionId: string): Promise<WorkflowExecution | null> {
     const execution = await this.getExecution(executionId);
     if (!execution) {
       return null;
@@ -322,9 +307,7 @@ export class ExecutionTracker {
     }
 
     const { execution, stepExecutions } = history;
-    const completedSteps = stepExecutions.filter(
-      (step) => step.status === 'completed'
-    );
+    const completedSteps = stepExecutions.filter((step) => step.status === 'completed');
     const startedAt = execution.startedAt;
     if (!startedAt) {
       return {
@@ -338,19 +321,14 @@ export class ExecutionTracker {
     }
 
     const totalTime = execution.completedAt
-      ? new Date(execution.completedAt).getTime() -
-        new Date(startedAt).getTime()
+      ? new Date(execution.completedAt).getTime() - new Date(startedAt).getTime()
       : Date.now() - new Date(startedAt).getTime();
 
     return {
       totalSteps: stepExecutions.length,
       completedSteps: completedSteps.length,
-      successRate:
-        stepExecutions.length > 0
-          ? completedSteps.length / stepExecutions.length
-          : 0,
-      averageStepTime:
-        completedSteps.length > 0 ? totalTime / completedSteps.length : 0,
+      successRate: stepExecutions.length > 0 ? completedSteps.length / stepExecutions.length : 0,
+      averageStepTime: completedSteps.length > 0 ? totalTime / completedSteps.length : 0,
       qualityScore: execution.metrics.qualityScore,
       roleTransitions: execution.roleHistory.length,
     };
@@ -375,13 +353,9 @@ export class ExecutionTracker {
     });
   }
 
-  private async loadExecution(
-    executionId: string
-  ): Promise<WorkflowExecution | null> {
+  private async loadExecution(executionId: string): Promise<WorkflowExecution | null> {
     // Load from vector storage
-    const analysis = await this.storage.getCodeAnalysis(
-      `execution-${executionId}`
-    );
+    const analysis = await this.storage.getCodeAnalysis(`execution-${executionId}`);
     if (!analysis) {
       return null;
     }
@@ -404,8 +378,7 @@ export class ExecutionTracker {
         patterns: [stepExecution.status, stepExecution.roleId],
         suggestions: stepExecution.aiSuggestions,
         qualityScore:
-          (stepExecution.qualityChecks.filter((q) => q.status === 'pass')
-            .length /
+          (stepExecution.qualityChecks.filter((q) => q.status === 'pass').length /
             stepExecution.qualityChecks.length) *
           100,
       },
@@ -413,9 +386,7 @@ export class ExecutionTracker {
     });
   }
 
-  private async getCodeAnalysis(
-    _id: string
-  ): Promise<Record<string, unknown> | null> {
+  private async getCodeAnalysis(_id: string): Promise<Record<string, unknown> | null> {
     // This would be implemented in the vector storage
     return null;
   }

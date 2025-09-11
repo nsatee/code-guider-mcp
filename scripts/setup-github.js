@@ -1,7 +1,7 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
-import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const args = process.argv.slice(2);
 
@@ -27,27 +27,27 @@ try {
   packageJson.author = {
     name: name,
     email: email,
-    url: `https://github.com/${username}`
+    url: `https://github.com/${username}`,
   };
 
   packageJson.repository = {
     type: 'git',
-    url: `git+https://github.com/${username}/code-guider.git`
+    url: `git+https://github.com/${username}/code-guider.git`,
   };
 
   packageJson.homepage = `https://github.com/${username}/code-guider#readme`;
 
   packageJson.bugs = {
-    url: `https://github.com/${username}/code-guider/issues`
+    url: `https://github.com/${username}/code-guider/issues`,
   };
 
   packageJson.funding = {
     type: 'github',
-    url: `https://github.com/sponsors/${username}`
+    url: `https://github.com/sponsors/${username}`,
   };
 
   // Write back to package.json
-  writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n');
+  writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
 
   console.log('✅ GitHub URLs updated successfully!');
   console.log('');
@@ -56,7 +56,6 @@ try {
   console.log('2. git commit -m "chore: update GitHub URLs"');
   console.log('3. git push origin main');
   console.log('4. bun run release:patch');
-
 } catch (error) {
   console.error('❌ Error updating package.json:', error.message);
   process.exit(1);

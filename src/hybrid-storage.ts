@@ -1,4 +1,4 @@
-import { DrizzleStorage } from './db/drizzle-storage';
+import { DrizzleStorage } from './db/drizzle-storage.js';
 import type { CodeAnalysis } from './storage-interface';
 import type {
   CodeTemplate,
@@ -12,7 +12,7 @@ import type {
   VectorSearchResult,
   Workflow,
 } from './types';
-import { VectorStorage } from './vector-storage';
+import { VectorStorage } from './vector-storage.js';
 
 /**
  * Hybrid storage implementation that combines:
@@ -29,7 +29,7 @@ export class HybridStorage {
   }
 
   static async create(dbPath: string = '.guidance/guidance.db'): Promise<HybridStorage> {
-    const drizzleStorage = await DrizzleStorage.create();
+    const drizzleStorage = await DrizzleStorage.create(dbPath);
     const vectorStorage = await VectorStorage.create(dbPath);
     return new HybridStorage(drizzleStorage, vectorStorage);
   }

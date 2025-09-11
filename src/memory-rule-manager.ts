@@ -14,6 +14,7 @@ import type {
  */
 export class MemoryRuleManager {
   private memoryRouter: MemoryRouter;
+  private projectManager: ProjectManager;
   private rules: MemoryRule[] = [];
 
   constructor(memoryRouter: MemoryRouter, projectManager: ProjectManager) {
@@ -24,10 +25,7 @@ export class MemoryRuleManager {
   /**
    * Initialize default memory rules for a project
    */
-  public async initializeProjectRules(
-    projectPath: string,
-    projectType: string
-  ): Promise<void> {
+  public async initializeProjectRules(projectPath: string, projectType: string): Promise<void> {
     const projectId = this.generateProjectId(projectPath);
 
     // Create default rules based on project type
@@ -44,10 +42,7 @@ export class MemoryRuleManager {
   /**
    * Create default memory rules based on project type
    */
-  private createDefaultRules(
-    projectType: string,
-    projectId: string
-  ): MemoryRule[] {
+  private createDefaultRules(projectType: string, projectId: string): MemoryRule[] {
     const now = new Date().toISOString();
     const rules: MemoryRule[] = [];
 
@@ -55,8 +50,7 @@ export class MemoryRuleManager {
     rules.push({
       id: `rule_${projectId}_best_practices`,
       name: 'Best Practices & Security',
-      description:
-        'Always attach best practices and security-related memories to all requests',
+      description: 'Always attach best practices and security-related memories to all requests',
       trigger: {
         type: 'always',
         patterns: [],
@@ -77,19 +71,14 @@ export class MemoryRuleManager {
     rules.push({
       id: `rule_${projectId}_project_specific`,
       name: 'Project-Specific Knowledge',
-      description:
-        'Attach project-specific requirements and architecture decisions',
+      description: 'Attach project-specific requirements and architecture decisions',
       trigger: {
         type: 'always',
         patterns: [],
         conditions: {},
       },
       scope: 'project',
-      memoryTypes: [
-        'project_requirement',
-        'architecture_decision',
-        'workflow_insight',
-      ],
+      memoryTypes: ['project_requirement', 'architecture_decision', 'workflow_insight'],
       memoryCategories: ['technical', 'process'],
       maxMemories: 2,
       relevanceThreshold: 0.6,
@@ -103,8 +92,7 @@ export class MemoryRuleManager {
     rules.push({
       id: `rule_${projectId}_file_specific`,
       name: 'File-Specific Patterns',
-      description:
-        'Attach memories related to specific file types and patterns',
+      description: 'Attach memories related to specific file types and patterns',
       trigger: {
         type: 'file_path',
         patterns: ['.ts', '.tsx', '.js', '.jsx', '.py', '.java', '.go', '.rs'],
@@ -146,8 +134,7 @@ export class MemoryRuleManager {
     rules.push({
       id: `rule_${projectId}_workflow_specific`,
       name: 'Workflow & Process Memories',
-      description:
-        'Attach workflow and process-related memories during workflow execution',
+      description: 'Attach workflow and process-related memories during workflow execution',
       trigger: {
         type: 'workflow_step',
         patterns: [],
@@ -194,13 +181,7 @@ export class MemoryRuleManager {
         description: 'Attach API development patterns and best practices',
         trigger: {
           type: 'file_path',
-          patterns: [
-            '/api/',
-            '/routes/',
-            '/controllers/',
-            '.controller.',
-            '.route.',
-          ],
+          patterns: ['/api/', '/routes/', '/controllers/', '.controller.', '.route.'],
           conditions: {},
         },
         scope: 'global',
@@ -244,16 +225,10 @@ export class MemoryRuleManager {
 
     // Remove duplicates and sort by relevance
     const uniqueMemories = this.deduplicateMemories(relevantMemories);
-    const sortedMemories = uniqueMemories.sort(
-      (a, b) => b.relevance - a.relevance
-    );
+    const sortedMemories = uniqueMemories.sort((a, b) => b.relevance - a.relevance);
 
     // Create enhanced prompt
-    const enhancedPrompt = this.createEnhancedPrompt(
-      originalRequest,
-      sortedMemories,
-      context
-    );
+    const enhancedPrompt = this.createEnhancedPrompt(originalRequest, sortedMemories, context);
 
     return {
       originalRequest,
@@ -281,9 +256,7 @@ export class MemoryRuleManager {
           if (!context.filePath) {
             return false;
           }
-          return rule.trigger.patterns.some((pattern) =>
-            context.filePath?.includes(pattern)
-          );
+          return rule.trigger.patterns.some((pattern) => context.filePath?.includes(pattern));
 
         case 'project_type':
           return context.projectType === rule.context.projectType;
@@ -301,8 +274,7 @@ export class MemoryRuleManager {
 
         case 'code_analysis':
           return (
-            context.analysisType &&
-            rule.trigger.conditions.analysisType === context.analysisType
+            context.analysisType && rule.trigger.conditions.analysisType === context.analysisType
           );
 
         default:
@@ -329,18 +301,13 @@ export class MemoryRuleManager {
     );
 
     // Filter by relevance threshold
-    return memories.filter(
-      (memory) => memory.relevance >= rule.relevanceThreshold
-    );
+    return memories.filter((memory) => memory.relevance >= rule.relevanceThreshold);
   }
 
   /**
    * Build search query based on rule and context
    */
-  private buildSearchQuery(
-    rule: MemoryRule,
-    context: AgentRequestContext
-  ): string {
+  private buildSearchQuery(rule: MemoryRule, context: AgentRequestContext): string {
     const queryParts: string[] = [];
 
     // Add context-specific terms
@@ -396,9 +363,7 @@ export class MemoryRuleManager {
     const memoryContext = memories
       .map((result, index) => {
         const memory = result.memory;
-        return `${index + 1}. **${memory.type}** (${memory.scope}): ${
-          memory.content
-        }`;
+        return `${index + 1}. **${memory.type}** (${memory.scope}): ${memory.content}`;
       })
       .join('\n\n');
 
@@ -407,11 +372,7 @@ export class MemoryRuleManager {
 ${memoryContext}
 
 **Original Request:**
-${
-  typeof originalRequest === 'string'
-    ? originalRequest
-    : JSON.stringify(originalRequest, null, 2)
-}
+${typeof originalRequest === 'string' ? originalRequest : JSON.stringify(originalRequest, null, 2)}
 
 **Context:**
 - Project: ${context.projectType || 'Unknown'}
@@ -427,9 +388,7 @@ Please use the relevant knowledge above to provide a more informed and contextua
   /**
    * Deduplicate memories by ID
    */
-  private deduplicateMemories(
-    memories: MemorySearchResult[]
-  ): MemorySearchResult[] {
+  private deduplicateMemories(memories: MemorySearchResult[]): MemorySearchResult[] {
     const seen = new Set<string>();
     return memories.filter((memory) => {
       if (seen.has(memory.memory.id)) {
@@ -460,9 +419,7 @@ Please use the relevant knowledge above to provide a more informed and contextua
   private async loadRules(_projectId: string): Promise<void> {
     // This would typically load from database
     // For now, we'll just filter existing rules
-    this.rules = this.rules.filter(
-      (rule) => rule.context.projectType || rule.scope === 'global'
-    );
+    this.rules = this.rules.filter((rule) => rule.context.projectType || rule.scope === 'global');
   }
 
   /**

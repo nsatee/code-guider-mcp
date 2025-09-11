@@ -37,21 +37,21 @@ export class VectorStorage {
 
   constructor(db: any) {
     this.db = db;
-    this.initializeDatabase();
     this.initializeEmbeddingModel();
   }
 
-  static async create(
-    dbPath: string = '.guidance/guidance.db'
-  ): Promise<VectorStorage> {
-    // Always use Node.js implementation for compatibility
+  static async create(dbPath: string = '.guidance/guidance.db'): Promise<VectorStorage> {
+    // Use LibSQL for cross-platform compatibility
     try {
-      const betterSqlite3 = await import('better-sqlite3');
-      const Database = betterSqlite3.default;
-      const db = new Database(dbPath);
-      return new VectorStorage(db);
+      const { createClient } = await import('@libsql/client');
+      const db = createClient({
+        url: `file:${dbPath}`,
+      });
+      const storage = new VectorStorage(db);
+      await storage.initializeDatabase();
+      return storage;
     } catch (error) {
-      throw new Error(`Failed to load SQLite implementation: ${error}`);
+      throw new Error(`Failed to load LibSQL implementation: ${error}`);
     }
   }
 
@@ -59,22 +59,19 @@ export class VectorStorage {
     try {
       // Use a lightweight embedding model for local use
       const { pipeline } = await import('@xenova/transformers');
-      this.embeddingModel = await pipeline(
-        'feature-extraction',
-        'Xenova/all-MiniLM-L6-v2'
-      );
+      this.embeddingModel = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
     } catch (error) {
       console.warn('Failed to load embedding model, using fallback:', error);
       this.embeddingModel = null;
     }
   }
 
-  private initializeDatabase(): void {
+  private async initializeDatabase(): Promise<void> {
     // Enable vector extensions
-    this.db.exec('PRAGMA journal_mode=WAL;');
+    await this.db.execute('PRAGMA journal_mode=WAL;');
 
     // Create vector-specific tables that work alongside Drizzle tables
-    this.db.exec(`
+    await this.db.execute(`
       -- Create vector storage tables
       CREATE TABLE IF NOT EXISTS workflows_vector (
         id TEXT PRIMARY KEY,
@@ -188,9 +185,7 @@ export class VectorStorage {
 
   // Workflow operations with vector search
   async saveWorkflow(workflow: Workflow): Promise<void> {
-    const content = `${workflow.name} ${
-      workflow.description
-    } ${workflow.qualityChecks.join(' ')}`;
+    const content = `${workflow.name} ${workflow.description} ${workflow.qualityChecks.join(' ')}`;
     const embedding = await this.generateEmbedding(content);
     const metadata = {
       tags: workflow.tags,
@@ -198,24 +193,28 @@ export class VectorStorage {
       qualityChecks: workflow.qualityChecks.length,
     };
 
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO workflows_vector (id, name, description, content, embedding, metadata)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      workflow.id,
-      workflow.name,
-      workflow.description,
-      content,
-      JSON.stringify(embedding),
-      JSON.stringify(metadata)
+    const now = new Date().toISOString();
+    await this.db.execute(
+      `
+      INSERT OR REPLACE INTO workflows_vector (id, name, description, content, embedding, metadata, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+      [
+        workflow.id,
+        workflow.name,
+        workflow.description,
+        content,
+        JSON.stringify(embedding),
+        JSON.stringify(metadata),
+        workflow.createdAt || now,
+        workflow.updatedAt || now,
+      ]
     );
   }
 
   async getWorkflow(id: string): Promise<Workflow | null> {
-    const stmt = this.db.prepare('SELECT * FROM workflows_vector WHERE id = ?');
-    const row = stmt.get(id) as Record<string, unknown> | undefined;
+    const result = await this.db.execute('SELECT * FROM workflows_vector WHERE id = ?', [id]);
+    const row = result.rows[0] as Record<string, unknown> | undefined;
 
     if (!row) {
       return null;
@@ -233,13 +232,10 @@ export class VectorStorage {
     };
   }
 
-  async searchWorkflows(
-    query: string,
-    limit: number = 10
-  ): Promise<VectorSearchResult[]> {
+  async searchWorkflows(query: string, limit: number = 10): Promise<VectorSearchResult[]> {
     const queryEmbedding = await this.generateEmbedding(query);
-    const stmt = this.db.prepare('SELECT * FROM workflows_vector');
-    const rows = stmt.all() as Record<string, unknown>[];
+    const result = await this.db.execute('SELECT * FROM workflows_vector');
+    const rows = result.rows as Record<string, unknown>[];
 
     const results = rows.map((row) => {
       const embedding = JSON.parse(row['embedding'] as string);
@@ -266,18 +262,22 @@ export class VectorStorage {
       tags: template.tags,
     };
 
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO templates_vector (id, name, type, content, embedding, metadata)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      template.id,
-      template.name,
-      template.type,
-      template.content,
-      JSON.stringify(embedding),
-      JSON.stringify(metadata)
+    const now = new Date().toISOString();
+    await this.db.execute(
+      `
+      INSERT OR REPLACE INTO templates_vector (id, name, type, content, embedding, metadata, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+      [
+        template.id,
+        template.name,
+        template.type,
+        template.content,
+        JSON.stringify(embedding),
+        JSON.stringify(metadata),
+        template.createdAt || now,
+        template.updatedAt || now,
+      ]
     );
   }
 
@@ -288,12 +288,11 @@ export class VectorStorage {
   ): Promise<VectorSearchResult[]> {
     const queryEmbedding = await this.generateEmbedding(query);
     const whereClause = type ? 'WHERE type = ?' : '';
-    const stmt = this.db.prepare(
-      `SELECT * FROM templates_vector ${whereClause}`
+    const result = await this.db.execute(
+      `SELECT * FROM templates_vector ${whereClause}`,
+      type ? [type] : []
     );
-    const rows = type
-      ? stmt.all(type)
-      : (stmt.all() as Record<string, unknown>[]);
+    const rows = result.rows as Record<string, unknown>[];
 
     const results = rows.map((row: Record<string, unknown>) => {
       const embedding = JSON.parse(row['embedding'] as string);
@@ -308,27 +307,25 @@ export class VectorStorage {
     });
 
     return results
-      .sort(
-        (a: VectorSearchResult, b: VectorSearchResult) =>
-          b.similarity - a.similarity
-      )
+      .sort((a: VectorSearchResult, b: VectorSearchResult) => b.similarity - a.similarity)
       .slice(0, limit);
   }
 
   // Code analysis operations
   async saveCodeAnalysis(analysis: CodeAnalysis): Promise<void> {
     const embedding = await this.generateEmbedding(analysis.content);
-    const stmt = this.db.prepare(`
+    await this.db.execute(
+      `
       INSERT OR REPLACE INTO code_analysis (id, file_path, content, embedding, analysis)
       VALUES (?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      analysis.id,
-      analysis.filePath,
-      analysis.content,
-      JSON.stringify(embedding),
-      JSON.stringify(analysis.analysis)
+    `,
+      [
+        analysis.id,
+        analysis.filePath,
+        analysis.content,
+        JSON.stringify(embedding),
+        JSON.stringify(analysis.analysis),
+      ]
     );
   }
 
@@ -338,10 +335,10 @@ export class VectorStorage {
     limit: number = 5
   ): Promise<VectorSearchResult[]> {
     const queryEmbedding = await this.generateEmbedding(content);
-    const stmt = this.db.prepare(
-      'SELECT * FROM code_analysis WHERE file_path != ?'
-    );
-    const rows = stmt.all(filePath) as Record<string, unknown>[];
+    const result = await this.db.execute('SELECT * FROM code_analysis WHERE file_path != ?', [
+      filePath,
+    ]);
+    const rows = result.rows as Record<string, unknown>[];
 
     const results = rows.map((row) => {
       const embedding = JSON.parse(row['embedding'] as string);
@@ -370,12 +367,11 @@ export class VectorStorage {
     suggestedWorkflows: VectorSearchResult[];
     suggestedTemplates: VectorSearchResult[];
   }> {
-    const [similarCode, suggestedWorkflows, suggestedTemplates] =
-      await Promise.all([
-        this.findSimilarCode(filePath, content, 3),
-        this.searchWorkflows(content, 3),
-        this.searchTemplates(content, undefined, 3),
-      ]);
+    const [similarCode, suggestedWorkflows, suggestedTemplates] = await Promise.all([
+      this.findSimilarCode(filePath, content, 3),
+      this.searchWorkflows(content, 3),
+      this.searchTemplates(content, undefined, 3),
+    ]);
 
     return {
       similarCode,
@@ -394,28 +390,29 @@ export class VectorStorage {
       pattern: rule.pattern,
     };
 
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO quality_rules_vector (id, name, description, content, embedding, metadata)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      rule.id,
-      rule.name,
-      rule.description,
-      content,
-      JSON.stringify(embedding),
-      JSON.stringify(metadata)
+    const now = new Date().toISOString();
+    await this.db.execute(
+      `
+      INSERT OR REPLACE INTO quality_rules_vector (id, name, description, content, embedding, metadata, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+      [
+        rule.id,
+        rule.name,
+        rule.description,
+        content,
+        JSON.stringify(embedding),
+        JSON.stringify(metadata),
+        rule.createdAt || now,
+        rule.updatedAt || now,
+      ]
     );
   }
 
-  async searchQualityRules(
-    query: string,
-    limit: number = 10
-  ): Promise<VectorSearchResult[]> {
+  async searchQualityRules(query: string, limit: number = 10): Promise<VectorSearchResult[]> {
     const queryEmbedding = await this.generateEmbedding(query);
-    const stmt = this.db.prepare('SELECT * FROM quality_rules_vector');
-    const rows = stmt.all() as Record<string, unknown>[];
+    const result = await this.db.execute('SELECT * FROM quality_rules_vector');
+    const rows = result.rows as Record<string, unknown>[];
 
     const results = rows.map((row) => {
       const embedding = JSON.parse(row['embedding'] as string);
@@ -434,29 +431,27 @@ export class VectorStorage {
 
   // Project configuration
   async saveProjectConfig(config: ProjectConfig): Promise<void> {
-    const stmt = this.db.prepare(`
+    const result = await this.db.execute(`
       INSERT OR REPLACE INTO project_config (id, config)
       VALUES (?, ?)
     `);
 
-    stmt.run('default', JSON.stringify(config));
+    await this.db.execute('default', JSON.stringify(config));
   }
 
   async getProjectConfig(): Promise<ProjectConfig | null> {
-    const stmt = this.db.prepare(
-      'SELECT config FROM project_config WHERE id = ?'
-    );
-    const row = stmt.get('default') as Record<string, unknown> | undefined;
+    const result = await this.db.execute('SELECT config FROM project_config WHERE id = ?', [
+      'default',
+    ]);
+    const row = result.rows[0] as Record<string, unknown> | undefined;
 
     return row ? JSON.parse(row['config'] as string) : null;
   }
 
   // Utility methods
   async listWorkflows(): Promise<Workflow[]> {
-    const stmt = this.db.prepare(
-      'SELECT * FROM workflows_vector ORDER BY created_at DESC'
-    );
-    const rows = stmt.all() as Record<string, unknown>[];
+    const result = await this.db.execute('SELECT * FROM workflows_vector ORDER BY created_at DESC');
+    const rows = result.rows as Record<string, unknown>[];
 
     return rows.map((row) => ({
       id: row['id'] as string,
@@ -471,21 +466,13 @@ export class VectorStorage {
   }
 
   async listTemplates(): Promise<CodeTemplate[]> {
-    const stmt = this.db.prepare(
-      'SELECT * FROM templates_vector ORDER BY created_at DESC'
-    );
-    const rows = stmt.all() as Record<string, unknown>[];
+    const result = await this.db.execute('SELECT * FROM templates_vector ORDER BY created_at DESC');
+    const rows = result.rows as Record<string, unknown>[];
 
     return rows.map((row) => ({
       id: row['id'] as string,
       name: row['name'] as string,
-      type: row['type'] as
-        | 'component'
-        | 'function'
-        | 'class'
-        | 'interface'
-        | 'test'
-        | 'config',
+      type: row['type'] as 'component' | 'function' | 'class' | 'interface' | 'test' | 'config',
       content: row['content'] as string,
       variables: JSON.parse(row['metadata'] as string).variables || [],
       description: row['description'] as string,
@@ -494,21 +481,16 @@ export class VectorStorage {
   }
 
   async listQualityRules(): Promise<QualityRule[]> {
-    const stmt = this.db.prepare(
+    const result = await this.db.execute(
       'SELECT * FROM quality_rules_vector ORDER BY created_at DESC'
     );
-    const rows = stmt.all() as Record<string, unknown>[];
+    const rows = result.rows as Record<string, unknown>[];
 
     return rows.map((row) => ({
       id: row['id'] as string,
       name: row['name'] as string,
       description: row['description'] as string,
-      type: row['type'] as
-        | 'lint'
-        | 'test'
-        | 'security'
-        | 'performance'
-        | 'accessibility',
+      type: row['type'] as 'lint' | 'test' | 'security' | 'performance' | 'accessibility',
       severity: row['severity'] as 'error' | 'warning' | 'info',
       pattern: JSON.parse(row['metadata'] as string).pattern,
       check: row['description'] as string,
@@ -528,7 +510,7 @@ export class VectorStorage {
       importance: memory.importance,
     };
 
-    const stmt = this.db.prepare(`
+    const result = await this.db.execute(`
       INSERT OR REPLACE INTO memories_vector (
         id, content, type, scope, category, tags, project_id, 
         context, importance, embedding, metadata, 
@@ -536,7 +518,7 @@ export class VectorStorage {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(
+    await this.db.execute(
       memory.id,
       memory.content,
       memory.type,
@@ -589,8 +571,8 @@ export class VectorStorage {
     sql += ' ORDER BY similarity DESC LIMIT ?';
     params.push(limit);
 
-    const stmt = this.db.prepare(sql);
-    const rows = stmt.all(...params) as Record<string, unknown>[];
+    const result = await this.db.execute(sql, params);
+    const rows = result.rows as Record<string, unknown>[];
 
     return rows.map((row) => {
       const memory: Memory = {
@@ -626,8 +608,8 @@ export class VectorStorage {
   }
 
   async deleteMemory(id: string): Promise<void> {
-    const stmt = this.db.prepare('DELETE FROM memories_vector WHERE id = ?');
-    stmt.run(id);
+    const result = await this.db.execute('DELETE FROM memories_vector WHERE id = ?');
+    await this.db.execute(id);
   }
 
   close(): void {

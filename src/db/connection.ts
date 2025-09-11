@@ -1,21 +1,20 @@
 import { join } from 'node:path';
-import * as schema from './schema';
+import * as schema from './schema.js';
 
 // Lazy imports based on runtime
 async function getDatabaseAndDrizzle() {
-  // Always use Node.js implementation for now
-  // This ensures compatibility with both Bun and Node.js
+  // Use LibSQL for cross-platform compatibility
   try {
-    const betterSqlite3 = await import('better-sqlite3');
-    const nodeDrizzle = await import('drizzle-orm/better-sqlite3');
-    const nodeMigrate = await import('drizzle-orm/better-sqlite3/migrator');
+    const { createClient } = await import('@libsql/client');
+    const libsqlDrizzle = await import('drizzle-orm/libsql');
+    const libsqlMigrate = await import('drizzle-orm/libsql/migrator');
     return {
-      Database: betterSqlite3.default,
-      drizzle: nodeDrizzle.drizzle,
-      migrate: nodeMigrate.migrate,
+      createClient,
+      drizzle: libsqlDrizzle.drizzle,
+      migrate: libsqlMigrate.migrate,
     };
   } catch (error) {
-    throw new Error(`Failed to load SQLite implementation: ${error}`);
+    throw new Error(`Failed to load LibSQL implementation: ${error}`);
   }
 }
 
@@ -25,7 +24,7 @@ export class DatabaseConnection {
   private drizzle: any;
   private migrate: any;
 
-  private constructor(dbPath: string = '.guidance/guidance.db') {
+  private constructor(_dbPath: string = '.guidance/guidance.db') {
     // This will be initialized in the async init method
     this.db = null;
     this.drizzle = null;
@@ -33,22 +32,31 @@ export class DatabaseConnection {
   }
 
   private async init(dbPath: string) {
-    const { Database, drizzle, migrate } = await getDatabaseAndDrizzle();
+    const { createClient, drizzle, migrate } = await getDatabaseAndDrizzle();
 
-    this.db = new Database(dbPath);
+    // Ensure the directory exists before creating the database
+    const { dirname } = await import('node:path');
+    const { mkdirSync, existsSync } = await import('node:fs');
+    const dbDir = dirname(dbPath);
+    if (!existsSync(dbDir)) {
+      mkdirSync(dbDir, { recursive: true });
+    }
+
+    // Create LibSQL client with local file database
+    this.db = createClient({
+      url: `file:${dbPath}`,
+    });
     this.drizzle = drizzle(this.db, { schema });
     this.migrate = migrate;
 
     // Enable WAL mode for better performance
-    this.db.exec('PRAGMA journal_mode=WAL;');
-    this.db.exec('PRAGMA synchronous=NORMAL;');
-    this.db.exec('PRAGMA cache_size=10000;');
-    this.db.exec('PRAGMA temp_store=MEMORY;');
+    await this.db.execute('PRAGMA journal_mode=WAL;');
+    await this.db.execute('PRAGMA synchronous=NORMAL;');
+    await this.db.execute('PRAGMA cache_size=10000;');
+    await this.db.execute('PRAGMA temp_store=MEMORY;');
   }
 
-  public static async getInstance(
-    dbPath?: string
-  ): Promise<DatabaseConnection> {
+  public static async getInstance(dbPath?: string): Promise<DatabaseConnection> {
     if (!DatabaseConnection.instance) {
       DatabaseConnection.instance = new DatabaseConnection(dbPath);
       await DatabaseConnection.instance.init(dbPath || '.guidance/guidance.db');
@@ -75,6 +83,7 @@ export class DatabaseConnection {
   }
 
   public close() {
-    this.db.close();
+    // LibSQL client doesn't need explicit closing
+    // The connection will be cleaned up automatically
   }
 }

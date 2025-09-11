@@ -11,14 +11,7 @@ import type {
   Workflow,
 } from '../types';
 import { DatabaseConnection } from './connection';
-import {
-  memories,
-  memoryRules,
-  projectConfig,
-  qualityRules,
-  templates,
-  workflows,
-} from './schema';
+import { memories, memoryRules, projectConfig, qualityRules, templates, workflows } from './schema';
 
 export class DrizzleStorage {
   private db: ReturnType<DatabaseConnection['getDrizzle']>;
@@ -27,8 +20,8 @@ export class DrizzleStorage {
     this.db = db;
   }
 
-  static async create(): Promise<DrizzleStorage> {
-    const connection = await DatabaseConnection.getInstance();
+  static async create(dbPath?: string): Promise<DrizzleStorage> {
+    const connection = await DatabaseConnection.getInstance(dbPath);
     return new DrizzleStorage(connection.getDrizzle());
   }
 
@@ -62,11 +55,7 @@ export class DrizzleStorage {
   }
 
   async getWorkflow(id: string): Promise<Workflow | null> {
-    const result = await this.db
-      .select()
-      .from(workflows)
-      .where(eq(workflows.id, id))
-      .limit(1);
+    const result = await this.db.select().from(workflows).where(eq(workflows.id, id)).limit(1);
 
     if (result.length === 0) {
       return null;
@@ -91,10 +80,7 @@ export class DrizzleStorage {
   }
 
   async listWorkflows(): Promise<Workflow[]> {
-    const results = await this.db
-      .select()
-      .from(workflows)
-      .orderBy(desc(workflows.createdAt));
+    const results = await this.db.select().from(workflows).orderBy(desc(workflows.createdAt));
 
     return results.map((row: any) => ({
       id: row.id,
@@ -118,12 +104,7 @@ export class DrizzleStorage {
     const results = await this.db
       .select()
       .from(workflows)
-      .where(
-        or(
-          like(workflows.name, searchTerm),
-          like(workflows.description, searchTerm)
-        )
-      )
+      .where(or(like(workflows.name, searchTerm), like(workflows.description, searchTerm)))
       .orderBy(desc(workflows.createdAt));
 
     return results.map((row: any) => ({
@@ -170,11 +151,7 @@ export class DrizzleStorage {
   }
 
   async getTemplate(id: string): Promise<CodeTemplate | null> {
-    const result = await this.db
-      .select()
-      .from(templates)
-      .where(eq(templates.id, id))
-      .limit(1);
+    const result = await this.db.select().from(templates).where(eq(templates.id, id)).limit(1);
 
     if (result.length === 0) {
       return null;
@@ -199,10 +176,7 @@ export class DrizzleStorage {
   }
 
   async listTemplates(): Promise<CodeTemplate[]> {
-    const results = await this.db
-      .select()
-      .from(templates)
-      .orderBy(desc(templates.createdAt));
+    const results = await this.db.select().from(templates).orderBy(desc(templates.createdAt));
 
     return results.map((row: any) => ({
       id: row.id,
@@ -222,12 +196,7 @@ export class DrizzleStorage {
     const results = await this.db
       .select()
       .from(templates)
-      .where(
-        or(
-          like(templates.name, searchTerm),
-          like(templates.description, searchTerm)
-        )
-      )
+      .where(or(like(templates.name, searchTerm), like(templates.description, searchTerm)))
       .orderBy(desc(templates.createdAt));
 
     return results.map((row: any) => ({
@@ -303,10 +272,7 @@ export class DrizzleStorage {
   }
 
   async listQualityRules(): Promise<QualityRule[]> {
-    const results = await this.db
-      .select()
-      .from(qualityRules)
-      .orderBy(desc(qualityRules.createdAt));
+    const results = await this.db.select().from(qualityRules).orderBy(desc(qualityRules.createdAt));
 
     return results.map((row: any) => ({
       id: row.id,
@@ -392,11 +358,7 @@ export class DrizzleStorage {
   }
 
   async getMemory(id: string): Promise<Memory | null> {
-    const result = await this.db
-      .select()
-      .from(memories)
-      .where(eq(memories.id, id))
-      .limit(1);
+    const result = await this.db.select().from(memories).where(eq(memories.id, id)).limit(1);
 
     if (result.length === 0) {
       return null;
@@ -505,10 +467,13 @@ export class DrizzleStorage {
       .from(memories)
       .groupBy(memories.type);
 
-    const byType = typeResults.reduce((acc: any, row: any) => {
-      acc[row.type as MemoryType] = row.count;
-      return acc;
-    }, {} as Record<MemoryType, number>);
+    const byType = typeResults.reduce(
+      (acc: any, row: any) => {
+        acc[row.type as MemoryType] = row.count;
+        return acc;
+      },
+      {} as Record<MemoryType, number>
+    );
 
     // Get counts by category
     const categoryResults = await this.db
@@ -516,10 +481,13 @@ export class DrizzleStorage {
       .from(memories)
       .groupBy(memories.category);
 
-    const byCategory = categoryResults.reduce((acc: any, row: any) => {
-      acc[row.category as MemoryCategory] = row.count;
-      return acc;
-    }, {} as Record<MemoryCategory, number>);
+    const byCategory = categoryResults.reduce(
+      (acc: any, row: any) => {
+        acc[row.category as MemoryCategory] = row.count;
+        return acc;
+      },
+      {} as Record<MemoryCategory, number>
+    );
 
     // Get counts by scope
     const scopeResults = await this.db
@@ -527,10 +495,13 @@ export class DrizzleStorage {
       .from(memories)
       .groupBy(memories.scope);
 
-    const byScope = scopeResults.reduce((acc: any, row: any) => {
-      acc[row.scope as 'global' | 'project'] = row.count;
-      return acc;
-    }, {} as Record<'global' | 'project', number>);
+    const byScope = scopeResults.reduce(
+      (acc: any, row: any) => {
+        acc[row.scope as 'global' | 'project'] = row.count;
+        return acc;
+      },
+      {} as Record<'global' | 'project', number>
+    );
 
     return { total, byType, byCategory, byScope };
   }
@@ -573,11 +544,7 @@ export class DrizzleStorage {
   }
 
   async getMemoryRule(id: string): Promise<MemoryRule | null> {
-    const result = await this.db
-      .select()
-      .from(memoryRules)
-      .where(eq(memoryRules.id, id))
-      .limit(1);
+    const result = await this.db.select().from(memoryRules).where(eq(memoryRules.id, id)).limit(1);
 
     if (result.length === 0) {
       return null;

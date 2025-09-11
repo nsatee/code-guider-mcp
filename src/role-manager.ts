@@ -1,9 +1,4 @@
-import type {
-  AgentCapabilities,
-  RoleTransition,
-  WorkflowExecution,
-  WorkflowRole,
-} from './types';
+import type { AgentCapabilities, RoleTransition, WorkflowExecution, WorkflowRole } from './types';
 
 export class RoleManager {
   private roles: Map<string, WorkflowRole> = new Map();
@@ -38,11 +33,7 @@ export class RoleManager {
           focus: 'business-value',
           priority: 'requirements',
         },
-        qualityGates: [
-          'requirements-complete',
-          'stakeholder-approval',
-          'scope-defined',
-        ],
+        qualityGates: ['requirements-complete', 'stakeholder-approval', 'scope-defined'],
         nextRoles: ['architect'],
       },
       {
@@ -175,23 +166,9 @@ export class RoleManager {
     const capabilities: AgentCapabilities[] = [
       {
         agentType: 'cursor',
-        supportedRoles: [
-          'product-manager',
-          'architect',
-          'senior-developer',
-          'code-review',
-        ],
-        capabilities: [
-          'code-generation',
-          'refactoring',
-          'debugging',
-          'documentation',
-          'testing',
-        ],
-        limitations: [
-          'limited-deployment-capabilities',
-          'no-direct-database-access',
-        ],
+        supportedRoles: ['product-manager', 'architect', 'senior-developer', 'code-review'],
+        capabilities: ['code-generation', 'refactoring', 'debugging', 'documentation', 'testing'],
+        limitations: ['limited-deployment-capabilities', 'no-direct-database-access'],
         templates: ['react-component', 'api-endpoint', 'utility-function'],
       },
       {
@@ -203,19 +180,12 @@ export class RoleManager {
           'pattern-recognition',
           'best-practices',
         ],
-        limitations: [
-          'no-workflow-management',
-          'limited-architecture-planning',
-        ],
+        limitations: ['no-workflow-management', 'limited-architecture-planning'],
         templates: ['code-snippet', 'function-template', 'class-template'],
       },
       {
         agentType: 'roocode',
-        supportedRoles: [
-          'architect',
-          'senior-developer',
-          'integration-engineer',
-        ],
+        supportedRoles: ['architect', 'senior-developer', 'integration-engineer'],
         capabilities: [
           'workflow-automation',
           'deployment-management',
@@ -223,11 +193,7 @@ export class RoleManager {
           'monitoring-setup',
         ],
         limitations: ['limited-code-generation', 'no-quality-review'],
-        templates: [
-          'deployment-workflow',
-          'integration-template',
-          'monitoring-setup',
-        ],
+        templates: ['deployment-workflow', 'integration-template', 'monitoring-setup'],
       },
       {
         agentType: 'kilocode',
@@ -239,11 +205,7 @@ export class RoleManager {
           'performance-optimization',
         ],
         limitations: ['requires-high-compute', 'complex-setup'],
-        templates: [
-          'ai-workflow',
-          'performance-optimization',
-          'complex-automation',
-        ],
+        templates: ['ai-workflow', 'performance-optimization', 'complex-automation'],
       },
     ];
 
@@ -313,10 +275,7 @@ export class RoleManager {
     };
   }
 
-  private generateRoleGuidance(
-    role: WorkflowRole,
-    _context: Record<string, unknown>
-  ): string[] {
+  private generateRoleGuidance(role: WorkflowRole, _context: Record<string, unknown>): string[] {
     const guidance: string[] = [];
 
     switch (role.name) {
@@ -365,10 +324,7 @@ export class RoleManager {
     return guidance;
   }
 
-  private generateNextSteps(
-    role: WorkflowRole,
-    _context: Record<string, unknown>
-  ): string[] {
+  private generateNextSteps(role: WorkflowRole, _context: Record<string, unknown>): string[] {
     const nextSteps: string[] = [];
 
     switch (role.name) {
@@ -380,32 +336,16 @@ export class RoleManager {
         );
         break;
       case 'architect':
-        nextSteps.push(
-          'Create system diagram',
-          'Select technology stack',
-          'Define API contracts'
-        );
+        nextSteps.push('Create system diagram', 'Select technology stack', 'Define API contracts');
         break;
       case 'senior-developer':
-        nextSteps.push(
-          'Implement core features',
-          'Write unit tests',
-          'Create integration tests'
-        );
+        nextSteps.push('Implement core features', 'Write unit tests', 'Create integration tests');
         break;
       case 'code-review':
-        nextSteps.push(
-          'Review code quality',
-          'Check security issues',
-          'Validate performance'
-        );
+        nextSteps.push('Review code quality', 'Check security issues', 'Validate performance');
         break;
       case 'integration-engineer':
-        nextSteps.push(
-          'Deploy to staging',
-          'Run integration tests',
-          'Monitor system health'
-        );
+        nextSteps.push('Deploy to staging', 'Run integration tests', 'Monitor system health');
         break;
     }
 

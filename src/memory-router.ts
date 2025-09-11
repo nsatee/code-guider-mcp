@@ -1,4 +1,4 @@
-import type { HybridStorage } from './hybrid-storage';
+import type { HybridStorage } from './hybrid-storage.js';
 import type { ProjectManager } from './project-manager';
 import type {
   Memory,
@@ -27,9 +27,9 @@ export class MemoryRouter {
   /**
    * Set the current project context
    */
-  public setProjectContext(projectPath: string | null): void {
+  public async setProjectContext(projectPath: string | null): Promise<void> {
     if (projectPath) {
-      this.projectStorage = this.projectManager.getProjectStorage(projectPath);
+      this.projectStorage = await this.projectManager.getProjectStorage(projectPath);
       this.currentProjectId = this.generateProjectId(projectPath);
     } else {
       this.projectStorage = null;

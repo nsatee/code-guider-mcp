@@ -14,16 +14,16 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target node && bun build src/cli.ts --outdir dist --target node",
-    "build:all": "bun build src/index.ts --outdir dist --target node && bun build src/migrate.ts --outdir dist --target node && bun build src/cli.ts --outdir dist --target node",
-    "dev": "bun run build && bun run dist/index.js",
-    "start": "bun run dist/index.js",
-    "run": "bun src/index.ts",
-    "migrate": "bun run build:all && bun run dist/migrate.js",
-    "postinstall": "bun dist/migrate.js || echo 'Migration failed - run manually with: bun run migrate'",
-    "db:generate": "bunx drizzle-kit generate",
-    "db:migrate": "bunx drizzle-kit migrate",
-    "db:studio": "bunx drizzle-kit studio",
+    "build": "tsc",
+    "build:all": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "tsx src/index.ts",
+    "run": "tsx src/index.ts",
+    "migrate": "npm run build:all && node dist/migrate.js",
+    "postinstall": "node dist/migrate.js || echo 'Migration failed - run manually with: npm run migrate'",
+    "db:generate": "npx drizzle-kit generate",
+    "db:migrate": "npx drizzle-kit migrate",
+    "db:studio": "npx drizzle-kit studio",
     "test": "jest",
     "lint": "biome lint src/",
     "lint:fix": "biome lint --write src/",
@@ -38,12 +38,12 @@
     "pre-commit": "pre-commit install && pre-commit run --all-files",
     "pre-commit:install": "pre-commit install",
     "pre-commit:run": "pre-commit run --all-files",
-    "prepublishOnly": "bun run build",
-    "release": "bun scripts/release.js",
-    "release:patch": "bun scripts/release.js patch",
-    "release:minor": "bun scripts/release.js minor",
-    "release:major": "bun scripts/release.js major",
-    "setup-github": "bun scripts/setup-github.js"
+    "prepublishOnly": "npm run build",
+    "release": "node scripts/release.js",
+    "release:patch": "node scripts/release.js patch",
+    "release:minor": "node scripts/release.js minor",
+    "release:major": "node scripts/release.js major",
+    "setup-github": "node scripts/setup-github.js"
   },
   "keywords": [
     "mcp",
@@ -69,8 +69,7 @@
     "url": "https://github.com/nsatee/code-guider-mcp/issues"
   },
   "engines": {
-    "node": ">=18.0.0",
-    "bun": ">=1.0.0"
+    "node": ">=18.0.0"
   },
   "os": [
     "darwin",
@@ -82,9 +81,9 @@
     "arm64"
   ],
   "dependencies": {
+    "@libsql/client": "^0.15.15",
     "@modelcontextprotocol/sdk": "^0.4.0",
     "@xenova/transformers": "^2.6.2",
-    "better-sqlite3": "^12.2.0",
     "chalk": "^5.3.0",
     "drizzle-kit": "^0.31.4",
     "drizzle-orm": "^0.44.5",
@@ -100,6 +99,8 @@
     "jest": "^29.5.0",
     "pre-commit": "^1.2.2",
     "ts-jest": "^29.1.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.5",
     "typescript": "^5.0.0"
   }
 }
